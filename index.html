@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#102a43">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mac Workout">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="styles.css">
+<title>Mac Workout</title>
+</head>
+<body>
+<header class="app-header">
+  <div><div class="eyebrow">JAYFLEX HOME TRAINING</div><h1 id="screenTitle">Today</h1></div>
+  <button id="themeBtn" class="icon-btn" aria-label="Toggle dark mode">◐</button>
+</header>
+
+<main>
+<section id="todayScreen" class="screen active">
+  <div class="card hero">
+    <div><div class="muted light" id="todayDate"></div><h2 id="todayWorkout"></h2><div id="weekGuidance" class="guidance"></div></div>
+    <div class="week-pill">Week <span id="currentWeekLabel">1</span></div>
+  </div>
+  <div class="card compact"><label>Program week<select id="weekSelect"></select></label></div>
+  <div id="exerciseList"></div>
+  <button id="finishWorkoutBtn" class="primary wide">Finish workout</button>
+</section>
+
+<section id="programScreen" class="screen">
+  <div class="card"><label>Choose day<select id="programDaySelect"></select></label></div>
+  <div id="programList"></div>
+</section>
+
+<section id="progressScreen" class="screen">
+  <div class="stats-grid">
+    <div class="stat card"><span>Workouts</span><strong id="statWorkouts">0</strong></div>
+    <div class="stat card"><span>Adherence</span><strong id="statAdherence">0%</strong></div>
+    <div class="stat card"><span>Latest weight</span><strong id="statWeight">—</strong></div>
+    <div class="stat card"><span>Latest waist</span><strong id="statWaist">—</strong></div>
+  </div>
+  <div class="card">
+    <h3>Weekly check-in</h3>
+    <div class="form-grid">
+      <label>Body weight<input id="bodyWeight" type="number" step="0.1" inputmode="decimal" placeholder="lb"></label>
+      <label>Waist<input id="waist" type="number" step="0.1" inputmode="decimal" placeholder="in"></label>
+      <label>Average sleep<input id="sleep" type="number" step="0.1" inputmode="decimal" placeholder="hours"></label>
+      <label>Energy<select id="energy"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+      <label>Soreness<select id="soreness"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+    </div>
+    <label>Notes<textarea id="weeklyNotes" rows="3" placeholder="How did the week feel?"></textarea></label>
+    <button id="saveCheckinBtn" class="primary wide">Save check-in</button>
+  </div>
+  <div class="card"><h3>Body-weight trend</h3><canvas id="weightChart" height="190"></canvas></div>
+  <div class="card"><h3>Weekly history</h3><div id="historyList"></div></div>
+</section>
+
+<section id="settingsScreen" class="screen">
+  <div class="card">
+    <h3>Backup your data</h3>
+    <p class="muted">Workout entries stay on this device unless you export a backup.</p>
+    <button id="exportBtn" class="secondary wide">Export backup</button>
+    <label class="file-btn secondary wide">Import backup<input id="importInput" type="file" accept="application/json" hidden></label>
+  </div>
+  <div class="card"><h3>Program settings</h3><label>Current week<select id="settingsWeekSelect"></select></label></div>
+  <div class="card danger-zone"><h3>Reset</h3><button id="resetBtn" class="danger wide">Erase all workout data</button></div>
+  <div class="card"><h3>Install on iPhone</h3><ol><li>Open this site in Safari.</li><li>Tap Share.</li><li>Tap Add to Home Screen.</li><li>Turn on Open as Web App, then tap Add.</li></ol></div>
+</section>
+</main>
+
+<nav class="bottom-nav">
+<button data-screen="todayScreen" class="active"><span>●</span>Today</button>
+<button data-screen="programScreen"><span>▦</span>Program</button>
+<button data-screen="progressScreen"><span>↗</span>Progress</button>
+<button data-screen="settingsScreen"><span>⚙</span>Settings</button>
+</nav>
+<script src="app.js"></script>
+</body></html>
