@@ -40,3 +40,5 @@ body.dark .schedule-note{background:#17375e;color:#d6e7ff}
 .sync-status.good{color:#1b6b3a}
 .sync-status.warn{color:#9a6700}
 .sync-status.bad{color:var(--danger)}
+
+button:disabled{opacity:.65;cursor:not-allowed}

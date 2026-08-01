@@ -51,3 +51,10 @@ Before using cloud sync:
 - Signed-in data is also saved to `users/{uid}/apps/macWorkout`.
 - On first sign-in, existing local workout data is uploaded if no cloud profile exists.
 - When cloud data already exists, it loads onto the signed-in device.
+
+
+## Sign-in hotfix
+- Adds immediate visual feedback when Sign in is tapped.
+- Opens the workout app as soon as Firebase authenticates.
+- Loads Firestore data in the background.
+- Adds a 12-second connection timeout message.

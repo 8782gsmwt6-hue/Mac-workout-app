@@ -204,12 +204,48 @@ function init(){
 }
 
 function bindAuthControls() {
-  document.getElementById("signInBtn").addEventListener("click", async () => {
-    showAuthMessage("");
+  const signInButton = document.getElementById("signInBtn");
+  signInButton.addEventListener("click", async () => {
+    const email = val("authEmail").trim();
+    const password = val("authPassword");
+
+    if (!email || !password) {
+      showAuthMessage("Enter both your email and password.");
+      return;
+    }
+
+    const originalText = signInButton.textContent;
+    signInButton.disabled = true;
+    signInButton.textContent = "Signing in…";
+    showAuthMessage("Connecting to Firebase…", false);
+
+    const timeoutId = setTimeout(() => {
+      if (signInButton.disabled) {
+        showAuthMessage("Sign-in is taking too long. Check your connection and try again.");
+        signInButton.disabled = false;
+        signInButton.textContent = originalText;
+      }
+    }, 12000);
+
     try {
-      await signInWithEmailAndPassword(auth, val("authEmail").trim(), val("authPassword"));
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      clearTimeout(timeoutId);
+
+      currentUser = credential.user;
+      document.getElementById("authGate").classList.add("hidden");
+      document.getElementById("accountEmail").textContent = credential.user.email || "Signed in";
+      setSyncStatus("Loading…", "warn");
+      applyStateToUi();
+
+      loadCloudState(credential.user).catch(() => {
+        cloudReady = true;
+        setSyncStatus("Offline", "warn");
+      });
     } catch (error) {
+      clearTimeout(timeoutId);
       showAuthMessage(friendlyAuthError(error));
+      signInButton.disabled = false;
+      signInButton.textContent = originalText;
     }
   });
 
@@ -264,12 +300,13 @@ onAuthStateChanged(auth, async (user) => {
 
   gate.classList.add("hidden");
   email.textContent = user.email || "Signed in";
+  applyStateToUi();
+
   try {
     await loadCloudState(user);
   } catch (error) {
     setSyncStatus("Offline", "warn");
     cloudReady = true;
-    applyStateToUi();
   }
 });
 
