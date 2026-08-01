@@ -109,6 +109,7 @@ async function pushLocalState(force=false){
     state,
     ownerUid:currentUser.uid,
     clientUpdatedAt:writeTime,
+    resetEpoch:Number(state.resetEpoch||0),
     lastDeviceId:deviceId,
     updatedAt:serverTimestamp(),
     schemaVersion:4
@@ -169,12 +170,18 @@ function startRealtimeSync(user){
       const remote=data.state||{};
       const remoteTime=Number(data.clientUpdatedAt||remote.metaUpdatedAt||0);
       const localTime=Number(state.metaUpdatedAt||0);
+      const remoteReset=Number(data.resetEpoch||remote.resetEpoch||0);
+      const localReset=Number(state.resetEpoch||0);
 
-      if(remoteTime>localTime){
+      if(remoteReset>localReset){
+        applyRemoteState(Object.assign(blankState(),remote,{resetEpoch:remoteReset}));
+      }else if(localReset>remoteReset){
+        await pushLocalState(true);
+      }else if(remoteTime>localTime){
         applyRemoteState(remote);
       }else if(localTime>remoteTime && cloudReady){
         scheduleCloudSave();
-      }else if(!stateHasUserData(remote) && stateHasUserData(state)){
+      }else if(!stateHasUserData(remote) && stateHasUserData(state) && remoteReset===0){
         await pushLocalState(true);
       }
 
@@ -210,7 +217,7 @@ const DAYS = Object.keys(PROGRAM);
 const STORAGE_KEY = "macWorkoutDataV1";
 
 let state = loadState();
-function blankState(){return {currentWeek:1,dark:false,logs:{},checkins:{},finished:{},selectedWorkoutDay:"",metaUpdatedAt:0}}
+function blankState(){return {currentWeek:1,dark:false,logs:{},checkins:{},finished:{},selectedWorkoutDay:"",metaUpdatedAt:0,resetEpoch:0}}
 function loadState(){try{return Object.assign(blankState(),JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"));}catch(e){return blankState();}}
 function saveState(){
   state.metaUpdatedAt=Date.now();
@@ -287,8 +294,77 @@ function init(){
  document.querySelectorAll(".bottom-nav button").forEach(b=>b.onclick=()=>showScreen(b.dataset.screen,b.textContent.trim().replace(/[●▦↗⚙]/g,"")));
  document.getElementById("themeBtn").onclick=()=>{state.dark=!state.dark;saveState();document.body.classList.toggle("dark",state.dark);renderProgress()};
  document.getElementById("finishWorkoutBtn").onclick=finishWorkout;document.getElementById("saveCheckinBtn").onclick=saveCheckin;document.getElementById("exportBtn").onclick=exportData;
- document.getElementById("importInput").onchange=e=>e.target.files[0]&&importData(e.target.files[0]);document.getElementById("resetBtn").onclick=()=>{if(confirm("Erase all workout entries and progress?")){localStorage.removeItem(STORAGE_KEY);location.reload()}};
+ document.getElementById("importInput").onchange=e=>e.target.files[0]&&importData(e.target.files[0]);document.getElementById("resetBtn").onclick=clearAllWorkoutData;
  renderToday();renderProgress();if("serviceWorker" in navigator)navigator.serviceWorker.register("service-worker.js").catch(()=>{});
+}
+
+
+async function clearAllWorkoutData(){
+  const confirmed=confirm(
+    "Erase every workout entry, completed workout, and progress check-in from this account on all devices? This cannot be undone."
+  );
+  if(!confirmed) return;
+
+  const resetButton=document.getElementById("resetBtn");
+  const originalText=resetButton.textContent;
+  resetButton.disabled=true;
+  resetButton.textContent="Erasing everywhere…";
+  setSyncStatus("Erasing…","warn");
+
+  clearTimeout(syncTimer);
+
+  try{
+    if(unsubscribeCloud){
+      unsubscribeCloud();
+      unsubscribeCloud=null;
+    }
+
+    const resetEpoch=Date.now();
+    applyingRemote=true;
+    state=blankState();
+    state.resetEpoch=resetEpoch;
+    state.metaUpdatedAt=resetEpoch;
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+    applyStateToUi();
+
+    if(currentUser){
+      await setDoc(
+        cloudDocRef(currentUser.uid),
+        {
+          state,
+          ownerUid:currentUser.uid,
+          clientUpdatedAt:resetEpoch,
+          resetEpoch,
+          lastDeviceId:deviceId,
+          updatedAt:serverTimestamp(),
+          schemaVersion:6
+        },
+        {merge:false}
+      );
+    }
+
+    applyingRemote=false;
+    cloudReady=true;
+    setLastSynced(Date.now());
+    setSyncStatus(currentUser?"Synced":"Local cleared",currentUser?"good":"warn");
+
+    if(currentUser){
+      startRealtimeSync(currentUser);
+    }
+
+    alert("All workout data was erased from the cloud and this device. Other signed-in devices will clear when they reconnect.");
+  }catch(error){
+    applyingRemote=false;
+    cloudReady=true;
+    setSyncStatus("Erase failed","bad");
+    if(currentUser && !unsubscribeCloud){
+      startRealtimeSync(currentUser);
+    }
+    alert("The reset did not reach Firebase. Check your connection and try again.");
+  }finally{
+    resetButton.disabled=false;
+    resetButton.textContent=originalText;
+  }
 }
 
 function bindCloudUi(){

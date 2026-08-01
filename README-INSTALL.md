@@ -41,3 +41,16 @@ Workout records are stored locally in the browser on the device. Use Export Back
 - The newest `metaUpdatedAt` value wins during conflicts.
 - Settings includes **Sync now**, current status, and last-sync time.
 - Use the same Firebase account on iPhone and iPad.
+
+
+## Cloud data deletion fix
+- The reset button now erases both local data and the signed-in Firestore profile.
+- The empty workout state then syncs to every device using the same account.
+- The button shows progress and reports cloud deletion failures.
+
+
+## Authoritative cloud reset
+- Adds a reset marker that overrides older workout data on every device.
+- Temporarily pauses the real-time listener while resetting.
+- Cancels pending uploads before clearing.
+- Prevents an iPhone or iPad with stale local data from restoring deleted test entries.
