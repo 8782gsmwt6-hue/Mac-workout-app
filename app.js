@@ -4,19 +4,29 @@ const DAYS = Object.keys(PROGRAM);
 const STORAGE_KEY = "macWorkoutDataV1";
 
 let state = loadState();
-function blankState(){return {currentWeek:1,dark:false,logs:{},checkins:{},finished:{}}}
+function blankState(){return {currentWeek:1,dark:false,logs:{},checkins:{},finished:{},selectedWorkoutDay:""}}
 function loadState(){try{return Object.assign(blankState(),JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"));}catch(e){return blankState();}}
 function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}
 function keyFor(day,exIndex){return `${state.currentWeek}|${day}|${exIndex}`;}
 function dayName(){return DAYS[(new Date()).getDay()===0?6:(new Date()).getDay()-1];}
 function dateLabel(){return new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});}
 function setOptions(el){el.innerHTML="";for(let i=1;i<=16;i++){const o=document.createElement("option");o.value=i;o.textContent=`Week ${i}`;el.appendChild(o)}el.value=state.currentWeek;}
+function activeWorkoutDay(){
+ const selected=document.getElementById("todayWorkoutSelect")?.value;
+ return selected||state.selectedWorkoutDay||dayName();
+}
 function renderToday(){
- const day=dayName(),workout=PROGRAM[day],guide=WEEK_PLAN[String(state.currentWeek)];
+ const scheduled=dayName(),day=activeWorkoutDay(),workout=PROGRAM[day],guide=WEEK_PLAN[String(state.currentWeek)];
  document.getElementById("todayDate").textContent=dateLabel();
  document.getElementById("todayWorkout").textContent=`${day} — ${workout.title}`;
  document.getElementById("currentWeekLabel").textContent=state.currentWeek;
  document.getElementById("weekGuidance").textContent=`${guide[0]}: ${guide[1]} • ${guide[2]} • ${guide[3]} • ${guide[4]}`;
+ const note=document.getElementById("scheduleNote");
+ if(note){
+   note.textContent=day===scheduled
+     ? `Scheduled for today: ${scheduled} — ${PROGRAM[scheduled].title}`
+     : `Make-up workout selected: ${day} — ${workout.title}. Today’s scheduled workout is ${scheduled} — ${PROGRAM[scheduled].title}.`;
+ }
  const list=document.getElementById("exerciseList");list.innerHTML="";
  workout.exercises.forEach((ex,i)=>list.appendChild(makeExercise(day,ex,i,true)));
 }
@@ -36,7 +46,7 @@ function makeExercise(day,ex,i,editable){
  foot.append(rir,load);card.appendChild(foot);return card;
 }
 function renderProgram(){const day=document.getElementById("programDaySelect").value||dayName(),list=document.getElementById("programList");list.innerHTML="";PROGRAM[day].exercises.forEach((ex,i)=>list.appendChild(makeExercise(day,ex,i,false)));}
-function finishWorkout(){const day=dayName();state.finished[`${state.currentWeek}|${day}`]=true;saveState();alert("Workout saved. Strong work.");renderProgress();}
+function finishWorkout(){const day=activeWorkoutDay();state.finished[`${state.currentWeek}|${day}`]=true;saveState();alert(`${day} — ${PROGRAM[day].title} saved. Strong work.`);renderProgress();}
 function saveCheckin(){
  const w=state.currentWeek;state.checkins[w]={weight:val("bodyWeight"),waist:val("waist"),sleep:val("sleep"),energy:val("energy"),soreness:val("soreness"),notes:val("weeklyNotes"),date:new Date().toISOString()};saveState();renderProgress();alert("Weekly check-in saved.");
 }
@@ -57,6 +67,12 @@ function showScreen(id,title){document.querySelectorAll(".screen").forEach(s=>s.
 function init(){
  document.body.classList.toggle("dark",state.dark);
  ["weekSelect","settingsWeekSelect"].forEach(id=>{const e=document.getElementById(id);setOptions(e);e.onchange=()=>{state.currentWeek=Number(e.value);saveState();document.getElementById("weekSelect").value=state.currentWeek;document.getElementById("settingsWeekSelect").value=state.currentWeek;renderToday();renderProgress();}});
+ const todaySelect=document.getElementById("todayWorkoutSelect");
+ DAYS.forEach(d=>{const o=document.createElement("option");o.value=d;o.textContent=d+" — "+PROGRAM[d].title;todaySelect.appendChild(o)});
+ const initialDay=state.selectedWorkoutDay&&PROGRAM[state.selectedWorkoutDay]?state.selectedWorkoutDay:dayName();
+ todaySelect.value=initialDay;
+ state.selectedWorkoutDay=initialDay;
+ todaySelect.onchange=()=>{state.selectedWorkoutDay=todaySelect.value;saveState();renderToday();};
  const ds=document.getElementById("programDaySelect");DAYS.forEach(d=>{const o=document.createElement("option");o.value=d;o.textContent=d+" — "+PROGRAM[d].title;ds.appendChild(o)});ds.value=dayName();ds.onchange=renderProgram;
  document.querySelectorAll(".bottom-nav button").forEach(b=>b.onclick=()=>showScreen(b.dataset.screen,b.textContent.trim().replace(/[●▦↗⚙]/g,"")));
  document.getElementById("themeBtn").onclick=()=>{state.dark=!state.dark;saveState();document.body.classList.toggle("dark",state.dark);renderProgress()};

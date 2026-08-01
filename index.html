@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mac Workout">
-<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="apple-touch-icon" href="icon-180.png">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="styles.css">
 <title>Mac Workout</title>
@@ -24,7 +24,11 @@
     <div><div class="muted light" id="todayDate"></div><h2 id="todayWorkout"></h2><div id="weekGuidance" class="guidance"></div></div>
     <div class="week-pill">Week <span id="currentWeekLabel">1</span></div>
   </div>
-  <div class="card compact"><label>Program week<select id="weekSelect"></select></label></div>
+  <div class="card workout-controls">
+    <label>Program week<select id="weekSelect"></select></label>
+    <label>Workout to do today<select id="todayWorkoutSelect"></select></label>
+  </div>
+  <div id="scheduleNote" class="schedule-note"></div>
   <div id="exerciseList"></div>
   <button id="finishWorkoutBtn" class="primary wide">Finish workout</button>
 </section>

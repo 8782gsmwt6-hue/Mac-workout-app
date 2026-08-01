@@ -23,3 +23,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0
 .history-item:last-child{border-bottom:0}.badge{padding:5px 8px;border-radius:999px;background:#eaf2ff;color:#174ea6;font-size:12px;font-weight:800}canvas{width:100%;background:var(--card);border-radius:12px}
 body.dark{--bg:#0b1220;--card:#111c2e;--text:#edf2f7;--muted:#9fb3c8;--line:#243b53;--shadow:none}.dark .secondary{background:#17375e;color:#d6e7ff}.dark .skip-btn{background:#4a1f26;color:#ffd7dc}
 @media(min-width:620px){.sets{grid-template-columns:repeat(4,minmax(0,1fr))}.stats-grid{grid-template-columns:repeat(4,1fr)}}
+.workout-controls{display:grid;grid-template-columns:1fr 1.35fr;gap:12px;align-items:end;padding:12px 16px}
+.schedule-note{margin:-4px 4px 14px;padding:10px 12px;border-radius:12px;background:#eaf2ff;color:#174ea6;font-size:13px;font-weight:700}
+body.dark .schedule-note{background:#17375e;color:#d6e7ff}
+@media(max-width:520px){.workout-controls{grid-template-columns:1fr}}

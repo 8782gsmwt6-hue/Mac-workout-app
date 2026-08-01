@@ -24,3 +24,10 @@ A mobile-first, installable workout tracker built for iPhone and iPad.
 8. Tap **Share → Add to Home Screen**.
 
 Workout records are stored locally in the browser on the device. Use Export Backup regularly.
+
+
+## Flexible workout-day update
+- The Today screen now has a **Workout to do today** dropdown.
+- You can choose any scheduled workout on any calendar day.
+- A make-up workout is logged against the workout selected, not the current weekday.
+- Existing workout history remains compatible.
