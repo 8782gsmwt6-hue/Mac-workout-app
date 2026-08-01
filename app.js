@@ -1,3 +1,125 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signOut
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp,
+  enableIndexedDbPersistence
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBb2yWaEoqKs6r9DIry0m_vaEpnM8BgpvA",
+  authDomain: "mac-workout.firebaseapp.com",
+  projectId: "mac-workout",
+  storageBucket: "mac-workout.firebasestorage.app",
+  messagingSenderId: "833723483563",
+  appId: "1:833723483563:web:da96dbb6e70ac632ecbeee"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+enableIndexedDbPersistence(db).catch(() => {});
+
+let currentUser = null;
+let cloudReady = false;
+let syncTimer = null;
+let suppressCloudSave = false;
+
+function cloudDocRef(uid) {
+  return doc(db, "users", uid, "apps", "macWorkout");
+}
+
+function setSyncStatus(text, mode = "") {
+  const el = document.getElementById("syncStatus");
+  if (!el) return;
+  el.textContent = text;
+  el.className = `sync-status ${mode}`.trim();
+}
+
+function showAuthMessage(message, isError = true) {
+  const el = document.getElementById("authMessage");
+  if (!el) return;
+  el.textContent = message;
+  el.style.color = isError ? "var(--danger)" : "#1b6b3a";
+}
+
+async function loadCloudState(user) {
+  setSyncStatus("Loading…", "warn");
+  const snapshot = await getDoc(cloudDocRef(user.uid));
+
+  if (snapshot.exists()) {
+    suppressCloudSave = true;
+    const cloud = snapshot.data().state || {};
+    state = Object.assign(blankState(), cloud);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    suppressCloudSave = false;
+    applyStateToUi();
+    setSyncStatus("Synced", "good");
+  } else {
+    await saveCloudState(true);
+  }
+  cloudReady = true;
+}
+
+async function saveCloudState(force = false) {
+  if (!currentUser || suppressCloudSave || (!cloudReady && !force)) return;
+  setSyncStatus("Saving…", "warn");
+  await setDoc(
+    cloudDocRef(currentUser.uid),
+    {
+      state,
+      ownerUid: currentUser.uid,
+      updatedAt: serverTimestamp(),
+      schemaVersion: 2
+    },
+    { merge: true }
+  );
+  setSyncStatus("Synced", "good");
+}
+
+function scheduleCloudSave() {
+  if (!currentUser || suppressCloudSave) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    saveCloudState().catch(() => setSyncStatus("Sync error", "bad"));
+  }, 650);
+}
+
+function applyStateToUi() {
+  document.body.classList.toggle("dark", state.dark);
+  const weekSelect = document.getElementById("weekSelect");
+  const settingsWeekSelect = document.getElementById("settingsWeekSelect");
+  if (weekSelect) weekSelect.value = state.currentWeek;
+  if (settingsWeekSelect) settingsWeekSelect.value = state.currentWeek;
+  const todaySelect = document.getElementById("todayWorkoutSelect");
+  if (todaySelect && state.selectedWorkoutDay && PROGRAM[state.selectedWorkoutDay]) {
+    todaySelect.value = state.selectedWorkoutDay;
+  }
+  renderToday();
+  renderProgram();
+  renderProgress();
+}
+
+function friendlyAuthError(error) {
+  const code = error?.code || "";
+  if (code.includes("invalid-credential")) return "The email or password is incorrect.";
+  if (code.includes("email-already-in-use")) return "That email already has an account.";
+  if (code.includes("weak-password")) return "Use a password with at least 6 characters.";
+  if (code.includes("invalid-email")) return "Enter a valid email address.";
+  if (code.includes("too-many-requests")) return "Too many attempts. Wait a little and try again.";
+  return "Something went wrong. Please try again.";
+}
+
 const PROGRAM = {"Monday": {"title": "Push A", "exercises": [{"name": "Flat DB Bench Press", "load": "50 lb each", "sets": 4, "reps": "6\u201310", "rest": "2\u20133 min"}, {"name": "Incline DB Bench Press", "load": "40 lb each", "sets": 3, "reps": "8\u201312", "rest": "2 min"}, {"name": "Seated DB Shoulder Press", "load": "30 lb each", "sets": 3, "reps": "8\u201312", "rest": "2 min"}, {"name": "DB Lateral Raise", "load": "15 lb each", "sets": 3, "reps": "12\u201320", "rest": "60\u201390 sec"}, {"name": "Pulley Triceps Pressdown", "load": "20 lb", "sets": 3, "reps": "10\u201315", "rest": "60\u201390 sec"}]}, "Tuesday": {"title": "Pull A", "exercises": [{"name": "Hyperbell Bent-Over Row", "load": "2 \u00d7 50 lb DBs", "sets": 4, "reps": "6\u201310", "rest": "2\u20133 min"}, {"name": "One-Arm DB Row", "load": "50 lb", "sets": 3, "reps": "8\u201312/side", "rest": "2 min"}, {"name": "Pulley Lat Pulldown", "load": "40 lb", "sets": 3, "reps": "8\u201312", "rest": "2 min"}, {"name": "Pulley Face Pull", "load": "15 lb", "sets": 3, "reps": "12\u201320", "rest": "60\u201390 sec"}, {"name": "Jayflex EZ-Bar Curl", "load": "2 \u00d7 20 lb DBs", "sets": 3, "reps": "8\u201312", "rest": "60\u201390 sec"}]}, "Wednesday": {"title": "Legs A", "exercises": [{"name": "Hyperbell Romanian Deadlift", "load": "2 \u00d7 50 lb DBs", "sets": 4, "reps": "8\u201312", "rest": "2\u20133 min"}, {"name": "Goblet Squat", "load": "50 lb", "sets": 4, "reps": "10\u201315", "rest": "2 min"}, {"name": "Bulgarian Split Squat", "load": "30 lb each", "sets": 3, "reps": "8\u201312/side", "rest": "2 min"}, {"name": "DB Hip Thrust on Bench", "load": "50 lb", "sets": 3, "reps": "10\u201315", "rest": "90 sec"}, {"name": "Single-Leg Calf Raise", "load": "30 lb", "sets": 3, "reps": "12\u201320/side", "rest": "60 sec"}, {"name": "Plank", "load": "Bodyweight", "sets": 3, "reps": "30\u201360 sec", "rest": "60 sec"}]}, "Thursday": {"title": "Push B", "exercises": [{"name": "Incline DB Bench Press", "load": "40 lb each", "sets": 4, "reps": "8\u201312", "rest": "2 min"}, {"name": "Decline DB Bench Press", "load": "50 lb each", "sets": 3, "reps": "8\u201312", "rest": "2 min"}, {"name": "One-Arm Pulley Chest Fly", "load": "15 lb", "sets": 3, "reps": "12\u201320/side", "rest": "60\u201390 sec"}, {"name": "Lean-Away Pulley Lateral Raise", "load": "15 lb", "sets": 3, "reps": "12\u201320/side", "rest": "60 sec"}, {"name": "Overhead DB Triceps Extension", "load": "30 lb", "sets": 3, "reps": "10\u201315", "rest": "60\u201390 sec"}, {"name": "Push-Up", "load": "Bodyweight", "sets": 2, "reps": "Near failure", "rest": "90 sec"}]}, "Friday": {"title": "Pull B", "exercises": [{"name": "Chest-Supported DB Row", "load": "40 lb each", "sets": 4, "reps": "8\u201312", "rest": "2 min"}, {"name": "Pulley Straight-Arm Pulldown", "load": "20 lb", "sets": 3, "reps": "10\u201315", "rest": "60\u201390 sec"}, {"name": "One-Arm Pulley Row", "load": "30 lb", "sets": 3, "reps": "10\u201315/side", "rest": "90 sec"}, {"name": "Incline Rear-Delt DB Fly", "load": "15 lb each", "sets": 3, "reps": "12\u201320", "rest": "60 sec"}, {"name": "DB Hammer Curl", "load": "20 lb each", "sets": 3, "reps": "8\u201312", "rest": "60\u201390 sec"}, {"name": "Jayflex EZ-Bar Reverse Curl", "load": "2 \u00d7 15 lb DBs", "sets": 2, "reps": "10\u201315", "rest": "60 sec"}]}, "Saturday": {"title": "Legs B + Athletic", "exercises": [{"name": "Hyperbell Front Squat", "load": "2 \u00d7 40 lb DBs", "sets": 4, "reps": "8\u201312", "rest": "2\u20133 min"}, {"name": "DB Reverse Lunge", "load": "30 lb each", "sets": 3, "reps": "8\u201312/side", "rest": "2 min"}, {"name": "Single-Leg Romanian Deadlift", "load": "30 lb", "sets": 3, "reps": "10\u201315/side", "rest": "90 sec"}, {"name": "DB Step-Up", "load": "20 lb each", "sets": 3, "reps": "10\u201312/side", "rest": "90 sec"}, {"name": "Farmer Carry", "load": "50 lb each", "sets": 4, "reps": "30\u201345 sec", "rest": "60 sec"}, {"name": "Dead Bug", "load": "Bodyweight", "sets": 3, "reps": "8\u201312/side", "rest": "60 sec"}]}, "Sunday": {"title": "Recovery", "exercises": [{"name": "Easy walk or light bike", "load": "Bodyweight", "sets": 1, "reps": "30\u201345 min", "rest": "\u2014"}, {"name": "Mobility: hips, chest, shoulders", "load": "Bodyweight", "sets": 1, "reps": "10 min", "rest": "\u2014"}, {"name": "Optional easy stretching", "load": "Bodyweight", "sets": 1, "reps": "5\u201310 min", "rest": "\u2014"}]}};
 const WEEK_PLAN = {"1": ["Base", "Use listed load", "Bottom of rep range", "2\u20133 RIR", "Normal tempo"], "2": ["Build", "Same load", "+1 rep per set where possible", "2 RIR", "Normal tempo"], "3": ["Build", "Same load", "+1 rep per set again", "1\u20132 RIR", "Normal tempo"], "4": ["Deload", "Same load", "2 sets only; low end", "4 RIR", "Controlled"], "5": ["Base+", "Same or next available load if earned", "Bottom of range", "2\u20133 RIR", "Normal tempo"], "6": ["Build", "Same load", "+1 rep per set", "2 RIR", "Normal tempo"], "7": ["Build", "Same load", "+1 rep per set", "1\u20132 RIR", "Normal tempo"], "8": ["Deload", "Same load", "2 sets only; low end", "4 RIR", "Controlled"], "9": ["Intensify", "Heaviest controlled available load", "Low\u2013middle range", "2 RIR", "3-sec lowering"], "10": ["Build", "Same load", "+1 rep per set", "1\u20132 RIR", "3-sec lowering"], "11": ["Build", "Same load", "Top of range where possible", "1 RIR", "3-sec lowering"], "12": ["Deload", "One step lighter where practical", "2 sets at low end", "4 RIR", "Normal tempo"], "13": ["Peak", "Heaviest controlled available load", "Minimum reps", "2 RIR", "1-sec pause"], "14": ["Build", "Same load", "+1 rep per set", "1\u20132 RIR", "Pause reps"], "15": ["Performance", "Same load", "Beat Week 14 total reps", "0\u20131 RIR final set only", "Controlled"], "16": ["Reset", "Listed base load or lighter", "2 easy sets", "4\u20135 RIR", "Normal tempo"]};
 const DAYS = Object.keys(PROGRAM);
@@ -6,7 +128,7 @@ const STORAGE_KEY = "macWorkoutDataV1";
 let state = loadState();
 function blankState(){return {currentWeek:1,dark:false,logs:{},checkins:{},finished:{},selectedWorkoutDay:""}}
 function loadState(){try{return Object.assign(blankState(),JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"));}catch(e){return blankState();}}
-function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}
+function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));scheduleCloudSave();}
 function keyFor(day,exIndex){return `${state.currentWeek}|${day}|${exIndex}`;}
 function dayName(){return DAYS[(new Date()).getDay()===0?6:(new Date()).getDay()-1];}
 function dateLabel(){return new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});}
@@ -79,4 +201,79 @@ function init(){
  document.getElementById("finishWorkoutBtn").onclick=finishWorkout;document.getElementById("saveCheckinBtn").onclick=saveCheckin;document.getElementById("exportBtn").onclick=exportData;
  document.getElementById("importInput").onchange=e=>e.target.files[0]&&importData(e.target.files[0]);document.getElementById("resetBtn").onclick=()=>{if(confirm("Erase all workout entries and progress?")){localStorage.removeItem(STORAGE_KEY);location.reload()}};
  renderToday();renderProgress();if("serviceWorker" in navigator)navigator.serviceWorker.register("service-worker.js").catch(()=>{});
-}init();
+}
+
+function bindAuthControls() {
+  document.getElementById("signInBtn").addEventListener("click", async () => {
+    showAuthMessage("");
+    try {
+      await signInWithEmailAndPassword(auth, val("authEmail").trim(), val("authPassword"));
+    } catch (error) {
+      showAuthMessage(friendlyAuthError(error));
+    }
+  });
+
+  document.getElementById("createAccountBtn").addEventListener("click", async () => {
+    showAuthMessage("");
+    try {
+      await createUserWithEmailAndPassword(auth, val("authEmail").trim(), val("authPassword"));
+      showAuthMessage("Account created.", false);
+    } catch (error) {
+      showAuthMessage(friendlyAuthError(error));
+    }
+  });
+
+  document.getElementById("forgotPasswordBtn").addEventListener("click", async () => {
+    const email = val("authEmail").trim();
+    if (!email) {
+      showAuthMessage("Enter your email first.");
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      showAuthMessage("Password-reset email sent.", false);
+    } catch (error) {
+      showAuthMessage(friendlyAuthError(error));
+    }
+  });
+
+  document.getElementById("signOutBtn").addEventListener("click", () => signOut(auth));
+  document.getElementById("syncNowBtn").addEventListener("click", () => {
+    saveCloudState(true).catch(() => setSyncStatus("Sync error", "bad"));
+  });
+  document.getElementById("accountBtn").addEventListener("click", () => {
+    showScreen("settingsScreen", "Settings");
+  });
+}
+
+bindAuthControls();
+init();
+
+onAuthStateChanged(auth, async (user) => {
+  currentUser = user;
+  const gate = document.getElementById("authGate");
+  const email = document.getElementById("accountEmail");
+
+  if (!user) {
+    cloudReady = false;
+    setSyncStatus("Signed out");
+    email.textContent = "Not signed in";
+    gate.classList.remove("hidden");
+    return;
+  }
+
+  gate.classList.add("hidden");
+  email.textContent = user.email || "Signed in";
+  try {
+    await loadCloudState(user);
+  } catch (error) {
+    setSyncStatus("Offline", "warn");
+    cloudReady = true;
+    applyStateToUi();
+  }
+});
+
+window.addEventListener("online", () => {
+  if (currentUser) saveCloudState(true).catch(() => setSyncStatus("Sync error", "bad"));
+});
+window.addEventListener("offline", () => setSyncStatus("Offline", "warn"));

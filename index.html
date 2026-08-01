@@ -13,9 +13,32 @@
 <title>Mac Workout</title>
 </head>
 <body>
+<section id="authGate" class="auth-gate">
+  <div class="auth-card">
+    <div class="eyebrow">MAC WORKOUT CLOUD</div>
+    <h1>Sign in to sync</h1>
+    <p class="muted">Use the same account on your iPhone and iPad.</p>
+
+    <label>Email
+      <input id="authEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com">
+    </label>
+    <label>Password
+      <input id="authPassword" type="password" autocomplete="current-password" placeholder="At least 6 characters">
+    </label>
+
+    <div id="authMessage" class="auth-message" aria-live="polite"></div>
+    <button id="signInBtn" class="primary wide" type="button">Sign in</button>
+    <button id="createAccountBtn" class="secondary wide" type="button">Create account</button>
+    <button id="forgotPasswordBtn" class="text-btn" type="button">Forgot password?</button>
+  </div>
+</section>
 <header class="app-header">
   <div><div class="eyebrow">JAYFLEX HOME TRAINING</div><h1 id="screenTitle">Today</h1></div>
-  <button id="themeBtn" class="icon-btn" aria-label="Toggle dark mode">◐</button>
+  <div class="header-actions">
+      <div id="syncStatus" class="sync-status">Local</div>
+      <button id="accountBtn" class="icon-btn" aria-label="Account">◎</button>
+      <button id="themeBtn" class="icon-btn" aria-label="Toggle dark mode">◐</button>
+    </div>
 </header>
 
 <main>
@@ -80,5 +103,5 @@
 <button data-screen="progressScreen"><span>↗</span>Progress</button>
 <button data-screen="settingsScreen"><span>⚙</span>Settings</button>
 </nav>
-<script src="app.js"></script>
+<script type="module" src="app.js"></script>
 </body></html>

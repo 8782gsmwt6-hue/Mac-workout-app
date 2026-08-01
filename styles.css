@@ -27,3 +27,16 @@ body.dark{--bg:#0b1220;--card:#111c2e;--text:#edf2f7;--muted:#9fb3c8;--line:#243
 .schedule-note{margin:-4px 4px 14px;padding:10px 12px;border-radius:12px;background:#eaf2ff;color:#174ea6;font-size:13px;font-weight:700}
 body.dark .schedule-note{background:#17375e;color:#d6e7ff}
 @media(max-width:520px){.workout-controls{grid-template-columns:1fr}}
+
+.auth-gate{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:22px}
+.auth-gate.hidden{display:none}
+.auth-card{width:min(430px,100%);background:var(--card);border:1px solid var(--line);border-radius:24px;padding:22px;box-shadow:var(--shadow)}
+.auth-card h1{margin:4px 0 8px}
+.auth-card label{margin-top:12px}
+.auth-message{min-height:22px;margin:10px 0;color:var(--danger);font-size:13px;font-weight:700}
+.text-btn{border:0;background:transparent;color:var(--primary);font-weight:800;padding:8px;width:100%}
+.header-actions{display:flex;align-items:center;gap:8px}
+.sync-status{font-size:11px;font-weight:800;color:var(--muted);max-width:90px;text-align:right}
+.sync-status.good{color:#1b6b3a}
+.sync-status.warn{color:#9a6700}
+.sync-status.bad{color:var(--danger)}
