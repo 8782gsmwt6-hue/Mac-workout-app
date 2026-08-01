@@ -58,3 +58,11 @@ Before using cloud sync:
 - Opens the workout app as soon as Firebase authenticates.
 - Loads Firestore data in the background.
 - Adds a 12-second connection timeout message.
+
+
+## Workout-screen initialization fix
+- Restores program-week options after sign-in.
+- Restores workout-day options after sign-in.
+- Renders the selected workout and exercise cards correctly.
+- Preserves local workout data when the new cloud profile is empty.
+- Improves cloud sync status reporting.

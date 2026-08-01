@@ -32,6 +32,7 @@ enableIndexedDbPersistence(db).catch(() => {});
 
 let currentUser = null;
 let cloudReady = false;
+let appInitialized = false;
 let syncTimer = null;
 let suppressCloudSave = false;
 
@@ -58,17 +59,27 @@ async function loadCloudState(user) {
   const snapshot = await getDoc(cloudDocRef(user.uid));
 
   if (snapshot.exists()) {
-    suppressCloudSave = true;
     const cloud = snapshot.data().state || {};
-    state = Object.assign(blankState(), cloud);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    suppressCloudSave = false;
-    applyStateToUi();
-    setSyncStatus("Synced", "good");
+    const cloudHasData =
+      Object.keys(cloud.logs || {}).length > 0 ||
+      Object.keys(cloud.checkins || {}).length > 0 ||
+      Object.keys(cloud.finished || {}).length > 0;
+
+    if (cloudHasData) {
+      suppressCloudSave = true;
+      state = Object.assign(blankState(), cloud);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      suppressCloudSave = false;
+      applyStateToUi();
+    } else {
+      await saveCloudState(true);
+    }
   } else {
     await saveCloudState(true);
   }
+
   cloudReady = true;
+  setSyncStatus("Synced", "good");
 }
 
 async function saveCloudState(force = false) {
@@ -97,14 +108,22 @@ function scheduleCloudSave() {
 
 function applyStateToUi() {
   document.body.classList.toggle("dark", state.dark);
+
   const weekSelect = document.getElementById("weekSelect");
   const settingsWeekSelect = document.getElementById("settingsWeekSelect");
   if (weekSelect) weekSelect.value = state.currentWeek;
   if (settingsWeekSelect) settingsWeekSelect.value = state.currentWeek;
+
   const todaySelect = document.getElementById("todayWorkoutSelect");
   if (todaySelect && state.selectedWorkoutDay && PROGRAM[state.selectedWorkoutDay]) {
     todaySelect.value = state.selectedWorkoutDay;
   }
+
+  const programDaySelect = document.getElementById("programDaySelect");
+  if (programDaySelect && !programDaySelect.value) {
+    programDaySelect.value = dayName();
+  }
+
   renderToday();
   renderProgram();
   renderProgress();
@@ -187,20 +206,86 @@ function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:"
 function importData(file){const r=new FileReader();r.onload=()=>{try{state=Object.assign(blankState(),JSON.parse(r.result));saveState();location.reload()}catch(e){alert("That backup file could not be read.")}};r.readAsText(file)}
 function showScreen(id,title){document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("active",s.id===id));document.querySelectorAll(".bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.screen===id));document.getElementById("screenTitle").textContent=title;if(id==="progressScreen")renderProgress();if(id==="programScreen")renderProgram();window.scrollTo(0,0)}
 function init(){
+ if(appInitialized) return;
+ appInitialized = true;
+
  document.body.classList.toggle("dark",state.dark);
- ["weekSelect","settingsWeekSelect"].forEach(id=>{const e=document.getElementById(id);setOptions(e);e.onchange=()=>{state.currentWeek=Number(e.value);saveState();document.getElementById("weekSelect").value=state.currentWeek;document.getElementById("settingsWeekSelect").value=state.currentWeek;renderToday();renderProgress();}});
+
+ ["weekSelect","settingsWeekSelect"].forEach(id=>{
+   const e=document.getElementById(id);
+   setOptions(e);
+   e.onchange=()=>{
+     state.currentWeek=Number(e.value);
+     saveState();
+     document.getElementById("weekSelect").value=state.currentWeek;
+     document.getElementById("settingsWeekSelect").value=state.currentWeek;
+     renderToday();
+     renderProgress();
+   };
+ });
+
  const todaySelect=document.getElementById("todayWorkoutSelect");
- DAYS.forEach(d=>{const o=document.createElement("option");o.value=d;o.textContent=d+" — "+PROGRAM[d].title;todaySelect.appendChild(o)});
- const initialDay=state.selectedWorkoutDay&&PROGRAM[state.selectedWorkoutDay]?state.selectedWorkoutDay:dayName();
+ todaySelect.innerHTML="";
+ DAYS.forEach(d=>{
+   const o=document.createElement("option");
+   o.value=d;
+   o.textContent=d+" — "+PROGRAM[d].title;
+   todaySelect.appendChild(o);
+ });
+ const initialDay=state.selectedWorkoutDay&&PROGRAM[state.selectedWorkoutDay]
+   ? state.selectedWorkoutDay
+   : dayName();
  todaySelect.value=initialDay;
  state.selectedWorkoutDay=initialDay;
- todaySelect.onchange=()=>{state.selectedWorkoutDay=todaySelect.value;saveState();renderToday();};
- const ds=document.getElementById("programDaySelect");DAYS.forEach(d=>{const o=document.createElement("option");o.value=d;o.textContent=d+" — "+PROGRAM[d].title;ds.appendChild(o)});ds.value=dayName();ds.onchange=renderProgram;
- document.querySelectorAll(".bottom-nav button").forEach(b=>b.onclick=()=>showScreen(b.dataset.screen,b.textContent.trim().replace(/[●▦↗⚙]/g,"")));
- document.getElementById("themeBtn").onclick=()=>{state.dark=!state.dark;saveState();document.body.classList.toggle("dark",state.dark);renderProgress()};
- document.getElementById("finishWorkoutBtn").onclick=finishWorkout;document.getElementById("saveCheckinBtn").onclick=saveCheckin;document.getElementById("exportBtn").onclick=exportData;
- document.getElementById("importInput").onchange=e=>e.target.files[0]&&importData(e.target.files[0]);document.getElementById("resetBtn").onclick=()=>{if(confirm("Erase all workout entries and progress?")){localStorage.removeItem(STORAGE_KEY);location.reload()}};
- renderToday();renderProgress();if("serviceWorker" in navigator)navigator.serviceWorker.register("service-worker.js").catch(()=>{});
+ todaySelect.onchange=()=>{
+   state.selectedWorkoutDay=todaySelect.value;
+   saveState();
+   renderToday();
+ };
+
+ const ds=document.getElementById("programDaySelect");
+ ds.innerHTML="";
+ DAYS.forEach(d=>{
+   const o=document.createElement("option");
+   o.value=d;
+   o.textContent=d+" — "+PROGRAM[d].title;
+   ds.appendChild(o);
+ });
+ ds.value=dayName();
+ ds.onchange=renderProgram;
+
+ document.querySelectorAll(".bottom-nav button").forEach(b=>{
+   b.onclick=()=>showScreen(
+     b.dataset.screen,
+     b.textContent.trim().replace(/[●▦↗⚙]/g,"")
+   );
+ });
+
+ document.getElementById("themeBtn").onclick=()=>{
+   state.dark=!state.dark;
+   saveState();
+   document.body.classList.toggle("dark",state.dark);
+   renderProgress();
+ };
+
+ document.getElementById("finishWorkoutBtn").onclick=finishWorkout;
+ document.getElementById("saveCheckinBtn").onclick=saveCheckin;
+ document.getElementById("exportBtn").onclick=exportData;
+ document.getElementById("importInput").onchange=e=>e.target.files[0]&&importData(e.target.files[0]);
+ document.getElementById("resetBtn").onclick=()=>{
+   if(confirm("Erase all workout entries and progress?")){
+     localStorage.removeItem(STORAGE_KEY);
+     location.reload();
+   }
+ };
+
+ renderToday();
+ renderProgram();
+ renderProgress();
+
+ if("serviceWorker" in navigator){
+   navigator.serviceWorker.register("service-worker.js").catch(()=>{});
+ }
 }
 
 function bindAuthControls() {
@@ -282,8 +367,8 @@ function bindAuthControls() {
   });
 }
 
-bindAuthControls();
 init();
+bindAuthControls();
 
 onAuthStateChanged(auth, async (user) => {
   currentUser = user;
@@ -300,13 +385,15 @@ onAuthStateChanged(auth, async (user) => {
 
   gate.classList.add("hidden");
   email.textContent = user.email || "Signed in";
+  setSyncStatus("Connecting…", "warn");
   applyStateToUi();
 
   try {
     await loadCloudState(user);
   } catch (error) {
-    setSyncStatus("Offline", "warn");
     cloudReady = true;
+    setSyncStatus(navigator.onLine ? "Cloud error" : "Offline", navigator.onLine ? "bad" : "warn");
+    applyStateToUi();
   }
 });
 

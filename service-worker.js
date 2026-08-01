@@ -1,4 +1,4 @@
-const CACHE="mac-workout-firebase-v2-signin-hotfix";
+const CACHE="mac-workout-firebase-v3-ui-init-fix";
 const ASSETS=["./","index.html","styles.css","app.js","manifest.json","icon-180.png","icon-192.png","icon-512.png"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))));
