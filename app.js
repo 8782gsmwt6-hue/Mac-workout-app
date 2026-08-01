@@ -5,15 +5,17 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
-  signOut
+  signOut,
+  setPersistence,
+  browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import {
   getFirestore,
   doc,
   getDoc,
   setDoc,
-  serverTimestamp,
-  enableIndexedDbPersistence
+  onSnapshot,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -28,115 +30,178 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
-enableIndexedDbPersistence(db).catch(() => {});
 
 let currentUser = null;
 let cloudReady = false;
-let appInitialized = false;
 let syncTimer = null;
-let suppressCloudSave = false;
+let unsubscribeCloud = null;
+let applyingRemote = false;
+let lastSyncedAt = 0;
+const DEVICE_KEY = "macWorkoutDeviceId";
+const deviceId = localStorage.getItem(DEVICE_KEY) || crypto.randomUUID();
+localStorage.setItem(DEVICE_KEY, deviceId);
 
-function cloudDocRef(uid) {
-  return doc(db, "users", uid, "apps", "macWorkout");
+function cloudDocRef(uid){
+  return doc(db,"users",uid,"apps","macWorkout");
 }
 
-function setSyncStatus(text, mode = "") {
-  const el = document.getElementById("syncStatus");
-  if (!el) return;
-  el.textContent = text;
-  el.className = `sync-status ${mode}`.trim();
+function formatTime(timestamp){
+  if(!timestamp) return "Never";
+  return new Date(timestamp).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
 }
 
-function showAuthMessage(message, isError = true) {
-  const el = document.getElementById("authMessage");
-  if (!el) return;
-  el.textContent = message;
-  el.style.color = isError ? "var(--danger)" : "#1b6b3a";
-}
-
-async function loadCloudState(user) {
-  setSyncStatus("Loading…", "warn");
-  const snapshot = await getDoc(cloudDocRef(user.uid));
-
-  if (snapshot.exists()) {
-    const cloud = snapshot.data().state || {};
-    const cloudHasData =
-      Object.keys(cloud.logs || {}).length > 0 ||
-      Object.keys(cloud.checkins || {}).length > 0 ||
-      Object.keys(cloud.finished || {}).length > 0;
-
-    if (cloudHasData) {
-      suppressCloudSave = true;
-      state = Object.assign(blankState(), cloud);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      suppressCloudSave = false;
-      applyStateToUi();
-    } else {
-      await saveCloudState(true);
-    }
-  } else {
-    await saveCloudState(true);
+function setSyncStatus(text,mode=""){
+  const header=document.getElementById("syncStatus");
+  const settings=document.getElementById("settingsSyncStatus");
+  if(header){
+    header.textContent=text;
+    header.className=`sync-status ${mode}`.trim();
   }
-
-  cloudReady = true;
-  setSyncStatus("Synced", "good");
+  if(settings) settings.textContent=text;
 }
 
-async function saveCloudState(force = false) {
-  if (!currentUser || suppressCloudSave || (!cloudReady && !force)) return;
-  setSyncStatus("Saving…", "warn");
-  await setDoc(
-    cloudDocRef(currentUser.uid),
-    {
-      state,
-      ownerUid: currentUser.uid,
-      updatedAt: serverTimestamp(),
-      schemaVersion: 2
-    },
-    { merge: true }
-  );
-  setSyncStatus("Synced", "good");
+function setLastSynced(timestamp){
+  lastSyncedAt=timestamp||Date.now();
+  const text=formatTime(lastSyncedAt);
+  const header=document.getElementById("lastSyncHeader");
+  const settings=document.getElementById("lastSyncText");
+  if(header) header.textContent=`Last: ${text}`;
+  if(settings) settings.textContent=text;
 }
 
-function scheduleCloudSave() {
-  if (!currentUser || suppressCloudSave) return;
+function showAuthMessage(message,isError=true){
+  const el=document.getElementById("authMessage");
+  if(!el) return;
+  el.textContent=message;
+  el.style.color=isError?"var(--danger)":"#1b6b3a";
+}
+
+function friendlyAuthError(error){
+  const code=error?.code||"";
+  if(code.includes("invalid-credential")) return "The email or password is incorrect.";
+  if(code.includes("email-already-in-use")) return "That email already has an account. Tap Sign in.";
+  if(code.includes("weak-password")) return "Use a password with at least 6 characters.";
+  if(code.includes("invalid-email")) return "Enter a valid email address.";
+  if(code.includes("unauthorized-domain")) return "This website domain is not authorized in Firebase.";
+  if(code.includes("too-many-requests")) return "Too many attempts. Wait a little and try again.";
+  return "Firebase could not complete that request.";
+}
+
+function stateHasUserData(candidate){
+  return Object.keys(candidate?.logs||{}).length>0 ||
+         Object.keys(candidate?.checkins||{}).length>0 ||
+         Object.keys(candidate?.finished||{}).length>0;
+}
+
+function applyRemoteState(remote){
+  applyingRemote=true;
+  state=Object.assign(blankState(),remote||{});
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+  applyingRemote=false;
+  applyStateToUi();
+}
+
+async function pushLocalState(force=false){
+  if(!currentUser || applyingRemote || (!cloudReady&&!force)) return;
+  setSyncStatus("Saving…","warn");
+  const writeTime=state.metaUpdatedAt||Date.now();
+  await setDoc(cloudDocRef(currentUser.uid),{
+    state,
+    ownerUid:currentUser.uid,
+    clientUpdatedAt:writeTime,
+    lastDeviceId:deviceId,
+    updatedAt:serverTimestamp(),
+    schemaVersion:4
+  },{merge:true});
+  setSyncStatus("Synced","good");
+  setLastSynced(Date.now());
+}
+
+function scheduleCloudSave(){
+  if(!currentUser || applyingRemote) return;
   clearTimeout(syncTimer);
-  syncTimer = setTimeout(() => {
-    saveCloudState().catch(() => setSyncStatus("Sync error", "bad"));
-  }, 650);
+  syncTimer=setTimeout(()=>{
+    pushLocalState().catch(()=>setSyncStatus(navigator.onLine?"Sync error":"Offline",navigator.onLine?"bad":"warn"));
+  },700);
 }
 
-function applyStateToUi() {
-  document.body.classList.toggle("dark", state.dark);
-
-  const weekSelect = document.getElementById("weekSelect");
-  const settingsWeekSelect = document.getElementById("settingsWeekSelect");
-  if (weekSelect) weekSelect.value = state.currentWeek;
-  if (settingsWeekSelect) settingsWeekSelect.value = state.currentWeek;
-
-  const todaySelect = document.getElementById("todayWorkoutSelect");
-  if (todaySelect && state.selectedWorkoutDay && PROGRAM[state.selectedWorkoutDay]) {
-    todaySelect.value = state.selectedWorkoutDay;
+async function reconcileNow(){
+  if(!currentUser) return;
+  setSyncStatus("Syncing…","warn");
+  const snap=await getDoc(cloudDocRef(currentUser.uid));
+  if(!snap.exists()){
+    await pushLocalState(true);
+    cloudReady=true;
+    return;
   }
+  const data=snap.data();
+  const remote=data.state||{};
+  const remoteTime=Number(data.clientUpdatedAt||remote.metaUpdatedAt||0);
+  const localTime=Number(state.metaUpdatedAt||0);
 
-  const programDaySelect = document.getElementById("programDaySelect");
-  if (programDaySelect && !programDaySelect.value) {
-    programDaySelect.value = dayName();
+  if(remoteTime>localTime){
+    applyRemoteState(remote);
+  }else if(localTime>remoteTime){
+    await pushLocalState(true);
   }
+  cloudReady=true;
+  setSyncStatus("Synced","good");
+  setLastSynced(Date.now());
+}
 
+function startRealtimeSync(user){
+  if(unsubscribeCloud) unsubscribeCloud();
+  setSyncStatus("Connecting…","warn");
+
+  unsubscribeCloud=onSnapshot(
+    cloudDocRef(user.uid),
+    {includeMetadataChanges:true},
+    async snapshot=>{
+      if(snapshot.metadata.hasPendingWrites) return;
+
+      if(!snapshot.exists()){
+        cloudReady=true;
+        await pushLocalState(true);
+        return;
+      }
+
+      const data=snapshot.data();
+      const remote=data.state||{};
+      const remoteTime=Number(data.clientUpdatedAt||remote.metaUpdatedAt||0);
+      const localTime=Number(state.metaUpdatedAt||0);
+
+      if(remoteTime>localTime){
+        applyRemoteState(remote);
+      }else if(localTime>remoteTime && cloudReady){
+        scheduleCloudSave();
+      }else if(!stateHasUserData(remote) && stateHasUserData(state)){
+        await pushLocalState(true);
+      }
+
+      cloudReady=true;
+      setSyncStatus(snapshot.metadata.fromCache&&!navigator.onLine?"Offline":"Synced",snapshot.metadata.fromCache&&!navigator.onLine?"warn":"good");
+      setLastSynced(Date.now());
+    },
+    ()=>{
+      cloudReady=true;
+      setSyncStatus(navigator.onLine?"Cloud error":"Offline",navigator.onLine?"bad":"warn");
+    }
+  );
+}
+
+function applyStateToUi(){
+  document.body.classList.toggle("dark",state.dark);
+  const week=document.getElementById("weekSelect");
+  const settingsWeek=document.getElementById("settingsWeekSelect");
+  if(week) week.value=state.currentWeek;
+  if(settingsWeek) settingsWeek.value=state.currentWeek;
+  const workout=document.getElementById("todayWorkoutSelect");
+  if(workout&&state.selectedWorkoutDay&&PROGRAM[state.selectedWorkoutDay]){
+    workout.value=state.selectedWorkoutDay;
+  }
   renderToday();
   renderProgram();
   renderProgress();
-}
-
-function friendlyAuthError(error) {
-  const code = error?.code || "";
-  if (code.includes("invalid-credential")) return "The email or password is incorrect.";
-  if (code.includes("email-already-in-use")) return "That email already has an account.";
-  if (code.includes("weak-password")) return "Use a password with at least 6 characters.";
-  if (code.includes("invalid-email")) return "Enter a valid email address.";
-  if (code.includes("too-many-requests")) return "Too many attempts. Wait a little and try again.";
-  return "Something went wrong. Please try again.";
 }
 
 const PROGRAM = {"Monday": {"title": "Push A", "exercises": [{"name": "Flat DB Bench Press", "load": "50 lb each", "sets": 4, "reps": "6\u201310", "rest": "2\u20133 min"}, {"name": "Incline DB Bench Press", "load": "40 lb each", "sets": 3, "reps": "8\u201312", "rest": "2 min"}, {"name": "Seated DB Shoulder Press", "load": "30 lb each", "sets": 3, "reps": "8\u201312", "rest": "2 min"}, {"name": "DB Lateral Raise", "load": "15 lb each", "sets": 3, "reps": "12\u201320", "rest": "60\u201390 sec"}, {"name": "Pulley Triceps Pressdown", "load": "20 lb", "sets": 3, "reps": "10\u201315", "rest": "60\u201390 sec"}]}, "Tuesday": {"title": "Pull A", "exercises": [{"name": "Hyperbell Bent-Over Row", "load": "2 \u00d7 50 lb DBs", "sets": 4, "reps": "6\u201310", "rest": "2\u20133 min"}, {"name": "One-Arm DB Row", "load": "50 lb", "sets": 3, "reps": "8\u201312/side", "rest": "2 min"}, {"name": "Pulley Lat Pulldown", "load": "40 lb", "sets": 3, "reps": "8\u201312", "rest": "2 min"}, {"name": "Pulley Face Pull", "load": "15 lb", "sets": 3, "reps": "12\u201320", "rest": "60\u201390 sec"}, {"name": "Jayflex EZ-Bar Curl", "load": "2 \u00d7 20 lb DBs", "sets": 3, "reps": "8\u201312", "rest": "60\u201390 sec"}]}, "Wednesday": {"title": "Legs A", "exercises": [{"name": "Hyperbell Romanian Deadlift", "load": "2 \u00d7 50 lb DBs", "sets": 4, "reps": "8\u201312", "rest": "2\u20133 min"}, {"name": "Goblet Squat", "load": "50 lb", "sets": 4, "reps": "10\u201315", "rest": "2 min"}, {"name": "Bulgarian Split Squat", "load": "30 lb each", "sets": 3, "reps": "8\u201312/side", "rest": "2 min"}, {"name": "DB Hip Thrust on Bench", "load": "50 lb", "sets": 3, "reps": "10\u201315", "rest": "90 sec"}, {"name": "Single-Leg Calf Raise", "load": "30 lb", "sets": 3, "reps": "12\u201320/side", "rest": "60 sec"}, {"name": "Plank", "load": "Bodyweight", "sets": 3, "reps": "30\u201360 sec", "rest": "60 sec"}]}, "Thursday": {"title": "Push B", "exercises": [{"name": "Incline DB Bench Press", "load": "40 lb each", "sets": 4, "reps": "8\u201312", "rest": "2 min"}, {"name": "Decline DB Bench Press", "load": "50 lb each", "sets": 3, "reps": "8\u201312", "rest": "2 min"}, {"name": "One-Arm Pulley Chest Fly", "load": "15 lb", "sets": 3, "reps": "12\u201320/side", "rest": "60\u201390 sec"}, {"name": "Lean-Away Pulley Lateral Raise", "load": "15 lb", "sets": 3, "reps": "12\u201320/side", "rest": "60 sec"}, {"name": "Overhead DB Triceps Extension", "load": "30 lb", "sets": 3, "reps": "10\u201315", "rest": "60\u201390 sec"}, {"name": "Push-Up", "load": "Bodyweight", "sets": 2, "reps": "Near failure", "rest": "90 sec"}]}, "Friday": {"title": "Pull B", "exercises": [{"name": "Chest-Supported DB Row", "load": "40 lb each", "sets": 4, "reps": "8\u201312", "rest": "2 min"}, {"name": "Pulley Straight-Arm Pulldown", "load": "20 lb", "sets": 3, "reps": "10\u201315", "rest": "60\u201390 sec"}, {"name": "One-Arm Pulley Row", "load": "30 lb", "sets": 3, "reps": "10\u201315/side", "rest": "90 sec"}, {"name": "Incline Rear-Delt DB Fly", "load": "15 lb each", "sets": 3, "reps": "12\u201320", "rest": "60 sec"}, {"name": "DB Hammer Curl", "load": "20 lb each", "sets": 3, "reps": "8\u201312", "rest": "60\u201390 sec"}, {"name": "Jayflex EZ-Bar Reverse Curl", "load": "2 \u00d7 15 lb DBs", "sets": 2, "reps": "10\u201315", "rest": "60 sec"}]}, "Saturday": {"title": "Legs B + Athletic", "exercises": [{"name": "Hyperbell Front Squat", "load": "2 \u00d7 40 lb DBs", "sets": 4, "reps": "8\u201312", "rest": "2\u20133 min"}, {"name": "DB Reverse Lunge", "load": "30 lb each", "sets": 3, "reps": "8\u201312/side", "rest": "2 min"}, {"name": "Single-Leg Romanian Deadlift", "load": "30 lb", "sets": 3, "reps": "10\u201315/side", "rest": "90 sec"}, {"name": "DB Step-Up", "load": "20 lb each", "sets": 3, "reps": "10\u201312/side", "rest": "90 sec"}, {"name": "Farmer Carry", "load": "50 lb each", "sets": 4, "reps": "30\u201345 sec", "rest": "60 sec"}, {"name": "Dead Bug", "load": "Bodyweight", "sets": 3, "reps": "8\u201312/side", "rest": "60 sec"}]}, "Sunday": {"title": "Recovery", "exercises": [{"name": "Easy walk or light bike", "load": "Bodyweight", "sets": 1, "reps": "30\u201345 min", "rest": "\u2014"}, {"name": "Mobility: hips, chest, shoulders", "load": "Bodyweight", "sets": 1, "reps": "10 min", "rest": "\u2014"}, {"name": "Optional easy stretching", "load": "Bodyweight", "sets": 1, "reps": "5\u201310 min", "rest": "\u2014"}]}};
@@ -145,9 +210,13 @@ const DAYS = Object.keys(PROGRAM);
 const STORAGE_KEY = "macWorkoutDataV1";
 
 let state = loadState();
-function blankState(){return {currentWeek:1,dark:false,logs:{},checkins:{},finished:{},selectedWorkoutDay:""}}
+function blankState(){return {currentWeek:1,dark:false,logs:{},checkins:{},finished:{},selectedWorkoutDay:"",metaUpdatedAt:0}}
 function loadState(){try{return Object.assign(blankState(),JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"));}catch(e){return blankState();}}
-function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));scheduleCloudSave();}
+function saveState(){
+  state.metaUpdatedAt=Date.now();
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+  scheduleCloudSave();
+}
 function keyFor(day,exIndex){return `${state.currentWeek}|${day}|${exIndex}`;}
 function dayName(){return DAYS[(new Date()).getDay()===0?6:(new Date()).getDay()-1];}
 function dateLabel(){return new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});}
@@ -206,198 +275,121 @@ function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:"
 function importData(file){const r=new FileReader();r.onload=()=>{try{state=Object.assign(blankState(),JSON.parse(r.result));saveState();location.reload()}catch(e){alert("That backup file could not be read.")}};r.readAsText(file)}
 function showScreen(id,title){document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("active",s.id===id));document.querySelectorAll(".bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.screen===id));document.getElementById("screenTitle").textContent=title;if(id==="progressScreen")renderProgress();if(id==="programScreen")renderProgram();window.scrollTo(0,0)}
 function init(){
- if(appInitialized) return;
- appInitialized = true;
-
  document.body.classList.toggle("dark",state.dark);
-
- ["weekSelect","settingsWeekSelect"].forEach(id=>{
-   const e=document.getElementById(id);
-   setOptions(e);
-   e.onchange=()=>{
-     state.currentWeek=Number(e.value);
-     saveState();
-     document.getElementById("weekSelect").value=state.currentWeek;
-     document.getElementById("settingsWeekSelect").value=state.currentWeek;
-     renderToday();
-     renderProgress();
-   };
- });
-
+ ["weekSelect","settingsWeekSelect"].forEach(id=>{const e=document.getElementById(id);setOptions(e);e.onchange=()=>{state.currentWeek=Number(e.value);saveState();document.getElementById("weekSelect").value=state.currentWeek;document.getElementById("settingsWeekSelect").value=state.currentWeek;renderToday();renderProgress();}});
  const todaySelect=document.getElementById("todayWorkoutSelect");
- todaySelect.innerHTML="";
- DAYS.forEach(d=>{
-   const o=document.createElement("option");
-   o.value=d;
-   o.textContent=d+" — "+PROGRAM[d].title;
-   todaySelect.appendChild(o);
- });
- const initialDay=state.selectedWorkoutDay&&PROGRAM[state.selectedWorkoutDay]
-   ? state.selectedWorkoutDay
-   : dayName();
+ DAYS.forEach(d=>{const o=document.createElement("option");o.value=d;o.textContent=d+" — "+PROGRAM[d].title;todaySelect.appendChild(o)});
+ const initialDay=state.selectedWorkoutDay&&PROGRAM[state.selectedWorkoutDay]?state.selectedWorkoutDay:dayName();
  todaySelect.value=initialDay;
  state.selectedWorkoutDay=initialDay;
- todaySelect.onchange=()=>{
-   state.selectedWorkoutDay=todaySelect.value;
-   saveState();
-   renderToday();
- };
-
- const ds=document.getElementById("programDaySelect");
- ds.innerHTML="";
- DAYS.forEach(d=>{
-   const o=document.createElement("option");
-   o.value=d;
-   o.textContent=d+" — "+PROGRAM[d].title;
-   ds.appendChild(o);
- });
- ds.value=dayName();
- ds.onchange=renderProgram;
-
- document.querySelectorAll(".bottom-nav button").forEach(b=>{
-   b.onclick=()=>showScreen(
-     b.dataset.screen,
-     b.textContent.trim().replace(/[●▦↗⚙]/g,"")
-   );
- });
-
- document.getElementById("themeBtn").onclick=()=>{
-   state.dark=!state.dark;
-   saveState();
-   document.body.classList.toggle("dark",state.dark);
-   renderProgress();
- };
-
- document.getElementById("finishWorkoutBtn").onclick=finishWorkout;
- document.getElementById("saveCheckinBtn").onclick=saveCheckin;
- document.getElementById("exportBtn").onclick=exportData;
- document.getElementById("importInput").onchange=e=>e.target.files[0]&&importData(e.target.files[0]);
- document.getElementById("resetBtn").onclick=()=>{
-   if(confirm("Erase all workout entries and progress?")){
-     localStorage.removeItem(STORAGE_KEY);
-     location.reload();
-   }
- };
-
- renderToday();
- renderProgram();
- renderProgress();
-
- if("serviceWorker" in navigator){
-   navigator.serviceWorker.register("service-worker.js").catch(()=>{});
- }
+ todaySelect.onchange=()=>{state.selectedWorkoutDay=todaySelect.value;saveState();renderToday();};
+ const ds=document.getElementById("programDaySelect");DAYS.forEach(d=>{const o=document.createElement("option");o.value=d;o.textContent=d+" — "+PROGRAM[d].title;ds.appendChild(o)});ds.value=dayName();ds.onchange=renderProgram;
+ document.querySelectorAll(".bottom-nav button").forEach(b=>b.onclick=()=>showScreen(b.dataset.screen,b.textContent.trim().replace(/[●▦↗⚙]/g,"")));
+ document.getElementById("themeBtn").onclick=()=>{state.dark=!state.dark;saveState();document.body.classList.toggle("dark",state.dark);renderProgress()};
+ document.getElementById("finishWorkoutBtn").onclick=finishWorkout;document.getElementById("saveCheckinBtn").onclick=saveCheckin;document.getElementById("exportBtn").onclick=exportData;
+ document.getElementById("importInput").onchange=e=>e.target.files[0]&&importData(e.target.files[0]);document.getElementById("resetBtn").onclick=()=>{if(confirm("Erase all workout entries and progress?")){localStorage.removeItem(STORAGE_KEY);location.reload()}};
+ renderToday();renderProgress();if("serviceWorker" in navigator)navigator.serviceWorker.register("service-worker.js").catch(()=>{});
 }
 
-function bindAuthControls() {
-  const signInButton = document.getElementById("signInBtn");
-  signInButton.addEventListener("click", async () => {
-    const email = val("authEmail").trim();
-    const password = val("authPassword");
+function bindCloudUi(){
+  const signInBtn=document.getElementById("signInBtn");
+  const createBtn=document.getElementById("createAccountBtn");
 
-    if (!email || !password) {
+  signInBtn.addEventListener("click",async()=>{
+    const email=val("authEmail").trim();
+    const password=val("authPassword");
+    if(!email||!password){
       showAuthMessage("Enter both your email and password.");
       return;
     }
-
-    const originalText = signInButton.textContent;
-    signInButton.disabled = true;
-    signInButton.textContent = "Signing in…";
-    showAuthMessage("Connecting to Firebase…", false);
-
-    const timeoutId = setTimeout(() => {
-      if (signInButton.disabled) {
-        showAuthMessage("Sign-in is taking too long. Check your connection and try again.");
-        signInButton.disabled = false;
-        signInButton.textContent = originalText;
-      }
-    }, 12000);
-
-    try {
-      const credential = await signInWithEmailAndPassword(auth, email, password);
-      clearTimeout(timeoutId);
-
-      currentUser = credential.user;
-      document.getElementById("authGate").classList.add("hidden");
-      document.getElementById("accountEmail").textContent = credential.user.email || "Signed in";
-      setSyncStatus("Loading…", "warn");
-      applyStateToUi();
-
-      loadCloudState(credential.user).catch(() => {
-        cloudReady = true;
-        setSyncStatus("Offline", "warn");
-      });
-    } catch (error) {
-      clearTimeout(timeoutId);
+    signInBtn.disabled=true;
+    signInBtn.textContent="Signing in…";
+    showAuthMessage("Connecting…",false);
+    try{
+      await signInWithEmailAndPassword(auth,email,password);
+    }catch(error){
       showAuthMessage(friendlyAuthError(error));
-      signInButton.disabled = false;
-      signInButton.textContent = originalText;
+      signInBtn.disabled=false;
+      signInBtn.textContent="Sign in";
     }
   });
 
-  document.getElementById("createAccountBtn").addEventListener("click", async () => {
-    showAuthMessage("");
-    try {
-      await createUserWithEmailAndPassword(auth, val("authEmail").trim(), val("authPassword"));
-      showAuthMessage("Account created.", false);
-    } catch (error) {
+  createBtn.addEventListener("click",async()=>{
+    const email=val("authEmail").trim();
+    const password=val("authPassword");
+    if(!email||!password){
+      showAuthMessage("Enter both your email and password.");
+      return;
+    }
+    createBtn.disabled=true;
+    createBtn.textContent="Creating…";
+    try{
+      await createUserWithEmailAndPassword(auth,email,password);
+    }catch(error){
       showAuthMessage(friendlyAuthError(error));
+      createBtn.disabled=false;
+      createBtn.textContent="Create account";
     }
   });
 
-  document.getElementById("forgotPasswordBtn").addEventListener("click", async () => {
-    const email = val("authEmail").trim();
-    if (!email) {
+  document.getElementById("forgotPasswordBtn").addEventListener("click",async()=>{
+    const email=val("authEmail").trim();
+    if(!email){
       showAuthMessage("Enter your email first.");
       return;
     }
-    try {
-      await sendPasswordResetEmail(auth, email);
-      showAuthMessage("Password-reset email sent.", false);
-    } catch (error) {
+    try{
+      await sendPasswordResetEmail(auth,email);
+      showAuthMessage("Password-reset email sent.",false);
+    }catch(error){
       showAuthMessage(friendlyAuthError(error));
     }
   });
 
-  document.getElementById("signOutBtn").addEventListener("click", () => signOut(auth));
-  document.getElementById("syncNowBtn").addEventListener("click", () => {
-    saveCloudState(true).catch(() => setSyncStatus("Sync error", "bad"));
+  document.getElementById("syncNowBtn").addEventListener("click",()=>{
+    reconcileNow().catch(()=>setSyncStatus(navigator.onLine?"Sync error":"Offline",navigator.onLine?"bad":"warn"));
   });
-  document.getElementById("accountBtn").addEventListener("click", () => {
-    showScreen("settingsScreen", "Settings");
-  });
+
+  document.getElementById("signOutBtn").addEventListener("click",()=>signOut(auth));
+  document.getElementById("accountBtn").addEventListener("click",()=>showScreen("settingsScreen","Settings"));
 }
 
 init();
-bindAuthControls();
+bindCloudUi();
 
-onAuthStateChanged(auth, async (user) => {
-  currentUser = user;
-  const gate = document.getElementById("authGate");
-  const email = document.getElementById("accountEmail");
+setPersistence(auth,browserLocalPersistence)
+  .catch(()=>{})
+  .finally(()=>{
+    onAuthStateChanged(auth,user=>{
+      currentUser=user;
+      const gate=document.getElementById("authGate");
+      const account=document.getElementById("accountEmail");
+      const signInBtn=document.getElementById("signInBtn");
+      const createBtn=document.getElementById("createAccountBtn");
 
-  if (!user) {
-    cloudReady = false;
-    setSyncStatus("Signed out");
-    email.textContent = "Not signed in";
-    gate.classList.remove("hidden");
-    return;
-  }
+      signInBtn.disabled=false;
+      signInBtn.textContent="Sign in";
+      createBtn.disabled=false;
+      createBtn.textContent="Create account";
 
-  gate.classList.add("hidden");
-  email.textContent = user.email || "Signed in";
-  setSyncStatus("Connecting…", "warn");
-  applyStateToUi();
+      if(!user){
+        cloudReady=false;
+        if(unsubscribeCloud){unsubscribeCloud();unsubscribeCloud=null;}
+        gate.classList.remove("hidden");
+        account.textContent="Not signed in";
+        setSyncStatus("Signed out","warn");
+        return;
+      }
 
-  try {
-    await loadCloudState(user);
-  } catch (error) {
-    cloudReady = true;
-    setSyncStatus(navigator.onLine ? "Cloud error" : "Offline", navigator.onLine ? "bad" : "warn");
-    applyStateToUi();
-  }
+      gate.classList.add("hidden");
+      account.textContent=user.email||"Signed in";
+      setSyncStatus("Connecting…","warn");
+      applyStateToUi();
+      startRealtimeSync(user);
+    });
+  });
+
+window.addEventListener("online",()=>{
+  if(currentUser) reconcileNow().catch(()=>setSyncStatus("Sync error","bad"));
 });
-
-window.addEventListener("online", () => {
-  if (currentUser) saveCloudState(true).catch(() => setSyncStatus("Sync error", "bad"));
-});
-window.addEventListener("offline", () => setSyncStatus("Offline", "warn"));
+window.addEventListener("offline",()=>setSyncStatus("Offline","warn"));

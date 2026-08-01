@@ -33,36 +33,11 @@ Workout records are stored locally in the browser on the device. Use Export Back
 - Existing workout history remains compatible.
 
 
-## Firebase cloud-sync setup
+## Real-time cloud version
 
-This package is already connected to the Firebase project `mac-workout`.
-
-Before using cloud sync:
-
-1. Open Firebase Console → Firestore Database → Rules.
-2. Replace the existing rules with the contents of `firestore.rules.txt`.
-3. Click **Publish**.
-4. Upload the app files to the GitHub workout repository and wait for Pages to redeploy.
-5. Create an account inside the workout app.
-6. Sign in with the same email and password on iPhone and iPad.
-
-### Sync behavior
-- Data is saved locally immediately.
-- Signed-in data is also saved to `users/{uid}/apps/macWorkout`.
-- On first sign-in, existing local workout data is uploaded if no cloud profile exists.
-- When cloud data already exists, it loads onto the signed-in device.
-
-
-## Sign-in hotfix
-- Adds immediate visual feedback when Sign in is tapped.
-- Opens the workout app as soon as Firebase authenticates.
-- Loads Firestore data in the background.
-- Adds a 12-second connection timeout message.
-
-
-## Workout-screen initialization fix
-- Restores program-week options after sign-in.
-- Restores workout-day options after sign-in.
-- Renders the selected workout and exercise cards correctly.
-- Preserves local workout data when the new cloud profile is empty.
-- Improves cloud sync status reporting.
+- Firebase login persists between sessions.
+- Changes are written after a short delay.
+- Firestore updates are listened to in real time.
+- The newest `metaUpdatedAt` value wins during conflicts.
+- Settings includes **Sync now**, current status, and last-sync time.
+- Use the same Firebase account on iPhone and iPad.

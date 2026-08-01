@@ -35,8 +35,11 @@
 <header class="app-header">
   <div><div class="eyebrow">JAYFLEX HOME TRAINING</div><h1 id="screenTitle">Today</h1></div>
   <div class="header-actions">
-      <div id="syncStatus" class="sync-status">Local</div>
-      <button id="accountBtn" class="icon-btn" aria-label="Account">◎</button>
+      <div class="cloud-summary">
+        <div id="syncStatus" class="sync-status warn">Checking…</div>
+        <div id="lastSyncHeader" class="last-sync-mini"></div>
+      </div>
+      <button id="accountBtn" class="icon-btn" aria-label="Account and sync">◎</button>
       <button id="themeBtn" class="icon-btn" aria-label="Toggle dark mode">◐</button>
     </div>
 </header>
@@ -92,6 +95,17 @@
     <label class="file-btn secondary wide">Import backup<input id="importInput" type="file" accept="application/json" hidden></label>
   </div>
   <div class="card"><h3>Program settings</h3><label>Current week<select id="settingsWeekSelect"></select></label></div>
+
+  <div class="card">
+    <h3>Cloud sync</h3>
+    <p id="accountEmail" class="muted">Checking account…</p>
+    <div class="cloud-detail">
+      <div><span>Status</span><strong id="settingsSyncStatus">Checking…</strong></div>
+      <div><span>Last synced</span><strong id="lastSyncText">Never</strong></div>
+    </div>
+    <button id="syncNowBtn" class="secondary wide" type="button">Sync now</button>
+    <button id="signOutBtn" class="danger wide" type="button">Sign out</button>
+  </div>
   <div class="card danger-zone"><h3>Reset</h3><button id="resetBtn" class="danger wide">Erase all workout data</button></div>
   <div class="card"><h3>Install on iPhone</h3><ol><li>Open this site in Safari.</li><li>Tap Share.</li><li>Tap Add to Home Screen.</li><li>Turn on Open as Web App, then tap Add.</li></ol></div>
 </section>
