@@ -65,3 +65,11 @@ Workout records are stored locally in the browser on the device. Use Export Back
 - Exercises are chosen for a small-bedroom training footprint.
 - Primary sessions are designed to remain under 60 minutes.
 - The 16-week progression starts with a re-entry phase after time away from consistent training.
+
+
+## Program-tab editability fix
+- Program tab is now fully editable instead of read-only.
+- Tuesday and every other selected workout can be logged directly from Program.
+- Today and Program use the same workout log and stay synchronized.
+- Workout logs are keyed to exercise names instead of exercise position.
+- Old test data from a previous exercise can no longer bleed into a newly assigned exercise at the same position.
