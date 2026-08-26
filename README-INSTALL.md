@@ -54,3 +54,14 @@ Workout records are stored locally in the browser on the device. Use Export Back
 - Temporarily pauses the real-time listener while resetting.
 - Cancels pending uploads before clearing.
 - Prevents an iPhone or iPad with stale local data from restoring deleted test entries.
+
+
+## Chest-priority military-hybrid program
+- Four primary training days: Monday, Tuesday, Thursday, Saturday.
+- Saturday is the main heavy chest/upper-body session.
+- Thursday provides a second chest exposure without compromising Saturday.
+- Wednesday, Friday, and Sunday are recovery/rest focused.
+- All prescribed dumbbell loads use only 15, 20, 30, 40, or 50 lb dumbbells.
+- Exercises are chosen for a small-bedroom training footprint.
+- Primary sessions are designed to remain under 60 minutes.
+- The 16-week progression starts with a re-entry phase after time away from consistent training.
