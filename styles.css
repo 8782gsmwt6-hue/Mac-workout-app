@@ -40,3 +40,10 @@ body.dark .schedule-note{background:#17375e;color:#d6e7ff}
 .cloud-detail div{background:var(--bg);padding:12px;border-radius:12px}.cloud-detail span{display:block;color:var(--muted);font-size:12px}.cloud-detail strong{display:block;margin-top:4px}
 button:disabled{opacity:.65;cursor:not-allowed}
 @media(max-width:520px){.cloud-detail{grid-template-columns:1fr}}
+
+.progress-cue{display:grid;gap:7px;margin:10px 0 12px;padding:10px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
+.progress-cue-row{display:grid;grid-template-columns:86px 1fr;gap:8px;align-items:start;font-size:12px}
+.progress-cue-row span{color:var(--muted);font-weight:700}
+.progress-cue-row strong{font-size:12px;line-height:1.35}
+.progress-cue-row.target strong{color:var(--primary)}
+@media(max-width:520px){.progress-cue-row{grid-template-columns:1fr}.progress-cue-row span{margin-bottom:-4px}}

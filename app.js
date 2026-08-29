@@ -203,20 +203,21 @@ function applyStateToUi(){
   if(week) week.value=state.currentWeek;
   if(settingsWeek) settingsWeek.value=state.currentWeek;
   const workout=document.getElementById("todayWorkoutSelect");
-  if(workout&&state.selectedWorkoutDay&&PROGRAM[state.selectedWorkoutDay]){
-    workout.value=state.selectedWorkoutDay;
+  if(workout&&PROGRAM[sessionWorkoutDay]){
+    workout.value=sessionWorkoutDay;
   }
   renderToday();
   renderProgram();
   renderProgress();
 }
 
-const PROGRAM = {"Monday":{"title":"Lower + Core","exercises":[{"name":"Goblet Squat","load":"40 lb","sets":3,"reps":"10\u201312","rest":"90 sec"},{"name":"DB Romanian Deadlift","load":"40 lb each","sets":3,"reps":"8\u201312","rest":"2 min"},{"name":"Stationary Reverse Lunge","load":"15 lb each","sets":3,"reps":"8/side","rest":"90 sec"},{"name":"Standing DB Calf Raise","load":"40 lb each","sets":3,"reps":"12\u201315","rest":"60 sec"},{"name":"Plank","load":"Bodyweight","sets":3,"reps":"30\u201345 sec","rest":"60 sec"},{"name":"Bike / compact conditioning","load":"Moderate-hard","sets":1,"reps":"5\u20138 min","rest":"\u2014"}]},"Tuesday":{"title":"Pull + Calisthenics","exercises":[{"name":"Chest-Supported DB Row","load":"40 lb each","sets":4,"reps":"8\u201312","rest":"2 min"},{"name":"Pull-Up","load":"Bodyweight","sets":4,"reps":"Clean reps","rest":"2 min"},{"name":"Pulley Straight-Arm Pulldown","load":"20 lb","sets":3,"reps":"10\u201315","rest":"75 sec"},{"name":"DB Curl","load":"20 lb each","sets":3,"reps":"8\u201312","rest":"75 sec"},{"name":"Dead Hang","load":"Bodyweight","sets":3,"reps":"30 sec","rest":"60 sec"},{"name":"Push-Up","load":"Bodyweight","sets":3,"reps":"8\u201312","rest":"75 sec"}]},"Wednesday":{"title":"Recovery","exercises":[{"name":"Easy walk or bike","load":"Easy pace","sets":1,"reps":"20\u201330 min","rest":"\u2014"},{"name":"Chest / shoulder mobility","load":"Bodyweight","sets":1,"reps":"5\u20138 min","rest":"\u2014"}]},"Thursday":{"title":"Chest + Shoulders","exercises":[{"name":"Incline DB Bench Press","load":"40 lb each","sets":3,"reps":"8\u201312","rest":"2 min"},{"name":"Single-Arm Low-to-High Pulley Fly","load":"15 lb","sets":3,"reps":"10\u201315/side","rest":"60\u201375 sec"},{"name":"Seated DB Shoulder Press","load":"20 lb each","sets":3,"reps":"8\u201312","rest":"90 sec"},{"name":"DB Lateral Raise","load":"15 lb each","sets":3,"reps":"10\u201315","rest":"60 sec"},{"name":"Overhead DB Triceps Extension","load":"30 lb","sets":3,"reps":"10\u201312","rest":"75 sec"},{"name":"Push-Up","load":"Bodyweight","sets":3,"reps":"Stop 2 reps before failure","rest":"90 sec"}]},"Friday":{"title":"Rest","exercises":[{"name":"Rest day","load":"\u2014","sets":1,"reps":"Recover for Saturday","rest":"\u2014"},{"name":"Optional easy walk","load":"Easy pace","sets":1,"reps":"15\u201330 min","rest":"\u2014"}]},"Saturday":{"title":"Heavy Chest + Upper","exercises":[{"name":"Incline DB Bench Press","load":"40 lb each","sets":4,"reps":"8\u201312","rest":"2\u20133 min"},{"name":"Flat DB Bench Press","load":"50 lb each","sets":4,"reps":"6\u201310","rest":"2\u20133 min"},{"name":"Chest-Supported DB Row","load":"40 lb each","sets":3,"reps":"8\u201312","rest":"2 min"},{"name":"Single-Arm Low-to-High Pulley Fly","load":"15 lb","sets":3,"reps":"10\u201315/side","rest":"60\u201375 sec"},{"name":"Pull-Up","load":"Bodyweight","sets":3,"reps":"Clean reps","rest":"2 min"},{"name":"Push-Up Finisher","load":"Bodyweight","sets":2,"reps":"Near technical failure","rest":"90 sec"}]},"Sunday":{"title":"Recovery","exercises":[{"name":"Easy walk or bike","load":"Easy pace","sets":1,"reps":"20\u201330 min","rest":"\u2014"},{"name":"Mobility: hips, chest, shoulders","load":"Bodyweight","sets":1,"reps":"8\u201310 min","rest":"\u2014"}]}};
-const WEEK_PLAN = {"1":["Re-entry","Use listed loads","Stay at low-middle rep range","2\u20133 RIR","Controlled"],"2":["Build","Same loads","+1 rep per set where possible","2 RIR","Controlled"],"3":["Build","Same loads","+1 rep again","1\u20132 RIR","Controlled"],"4":["Deload","Same or one step lighter","2 sets per lift","4 RIR","Easy"],"5":["Progress","Use next available load only if earned","Low end of range","2\u20133 RIR","Controlled"],"6":["Build","Same load","+1 rep per set","2 RIR","Controlled"],"7":["Build","Same load","Push toward top of range","1\u20132 RIR","Controlled"],"8":["Deload","Reduce sets ~40%","Low end of range","4 RIR","Easy"],"9":["Strength-hypertrophy","Heaviest controlled available load","Lower half of range","2 RIR","Controlled"],"10":["Build","Same load","+1 rep per set","1\u20132 RIR","Controlled"],"11":["Build","Same load","Top of range where possible","1 RIR","Controlled"],"12":["Deload","One step lighter where practical","2 easy sets","4 RIR","Easy"],"13":["Peak build","Heaviest controlled available","Low-middle range","2 RIR","1-sec pause"],"14":["Build","Same load","+1 rep per set","1\u20132 RIR","Pause reps"],"15":["Performance","Same load","Beat Week 14 total reps","0\u20131 RIR final set only","Controlled"],"16":["Reset","Listed base load or lighter","2 easy sets","4\u20135 RIR","Easy"]};
+const PROGRAM = {"Monday":{"title":"Lower + Core","exercises":[{"name":"Goblet Squat","load":"40 lb","sets":3,"reps":"10\u201312","rest":"90 sec"},{"name":"DB Romanian Deadlift","load":"40 lb each","sets":3,"reps":"8\u201312","rest":"2 min"},{"name":"Stationary Reverse Lunge","load":"15 lb each","sets":3,"reps":"8/side","rest":"90 sec"},{"name":"Standing DB Calf Raise","load":"40 lb each","sets":3,"reps":"12\u201315","rest":"60 sec"},{"name":"Plank","load":"Bodyweight","sets":3,"reps":"30\u201345 sec","rest":"60 sec"},{"name":"Bike / compact conditioning","load":"Moderate-hard","sets":1,"reps":"5\u20138 min","rest":"\u2014"}]},"Tuesday":{"title":"Pull + Calisthenics","exercises":[{"name":"Chest-Supported DB Row","load":"40 lb each","sets":4,"reps":"8\u201312","rest":"2 min"},{"name":"Pull-Up","load":"Bodyweight","sets":4,"reps":"Clean reps","rest":"2 min"},{"name":"Pulley Straight-Arm Pulldown","load":"20 lb","sets":3,"reps":"10\u201315","rest":"75 sec"},{"name":"DB Curl","load":"20 lb each","sets":3,"reps":"8\u201312","rest":"75 sec"},{"name":"Dead Hang","load":"Bodyweight","sets":3,"reps":"30 sec","rest":"60 sec"},{"name":"Push-Up","load":"Bodyweight","sets":3,"reps":"8\u201312","rest":"75 sec"}]},"Wednesday":{"title":"Recovery","exercises":[{"name":"Easy walk or bike","load":"Easy pace","sets":1,"reps":"20\u201330 min","rest":"\u2014"},{"name":"Chest / shoulder mobility","load":"Bodyweight","sets":1,"reps":"5\u20138 min","rest":"\u2014"}]},"Thursday":{"title":"Chest + Shoulders","exercises":[{"name":"Incline DB Bench Press","load":"40 lb each","sets":3,"reps":"8\u201312","rest":"2 min"},{"name":"Single-Arm High-to-Low Pulley Fly","load":"15 lb","sets":3,"reps":"10\u201315/side","rest":"60\u201375 sec"},{"name":"Seated DB Shoulder Press","load":"20 lb each","sets":3,"reps":"8\u201312","rest":"90 sec"},{"name":"DB Lateral Raise","load":"15 lb each","sets":3,"reps":"10\u201315","rest":"60 sec"},{"name":"Overhead DB Triceps Extension","load":"30 lb","sets":3,"reps":"10\u201312","rest":"75 sec"},{"name":"Push-Up","load":"Bodyweight","sets":3,"reps":"Stop 2 reps before failure","rest":"90 sec"}]},"Friday":{"title":"Rest","exercises":[{"name":"Rest day","load":"\u2014","sets":1,"reps":"Recover for Saturday","rest":"\u2014"},{"name":"Optional easy walk","load":"Easy pace","sets":1,"reps":"15\u201330 min","rest":"\u2014"}]},"Saturday":{"title":"Heavy Chest + Upper","exercises":[{"name":"Incline DB Bench Press","load":"40 lb each","sets":4,"reps":"8\u201312","rest":"2\u20133 min"},{"name":"Flat DB Bench Press","load":"50 lb each","sets":4,"reps":"6\u201310","rest":"2\u20133 min"},{"name":"Chest-Supported DB Row","load":"40 lb each","sets":3,"reps":"8\u201312","rest":"2 min"},{"name":"Single-Arm High-to-Low Pulley Fly","load":"15 lb","sets":3,"reps":"10\u201315/side","rest":"60\u201375 sec"},{"name":"Pull-Up","load":"Bodyweight","sets":3,"reps":"Clean reps","rest":"2 min"},{"name":"Push-Up Finisher","load":"Bodyweight","sets":2,"reps":"Near technical failure","rest":"90 sec"}]},"Sunday":{"title":"Recovery","exercises":[{"name":"Easy walk or bike","load":"Easy pace","sets":1,"reps":"20\u201330 min","rest":"\u2014"},{"name":"Mobility: hips, chest, shoulders","load":"Bodyweight","sets":1,"reps":"8\u201310 min","rest":"\u2014"}]}};
+const WEEK_PLAN = {"1":["Re-entry","Use listed loads","Low-middle rep range","2\u20133 RIR","Controlled"],"2":["Build","Same loads","+1 rep per set where possible","2 RIR","Controlled"],"3":["Build","Same loads","+1 rep again","1\u20132 RIR","Controlled"],"4":["Deload","Same or lighter","2 sets per lift","4 RIR","Easy"],"5":["Progress","Next available load only if earned","Low end of range","2\u20133 RIR","Controlled"],"6":["Build","Same load","+1 rep per set","2 RIR","Controlled"],"7":["Build","Same load","Toward top of range","1\u20132 RIR","Controlled"],"8":["Deload","Reduce sets ~40%","Low end","4 RIR","Easy"],"9":["Strength-hypertrophy","Heaviest controlled available","Lower half","2 RIR","Controlled"],"10":["Build","Same load","+1 rep per set","1\u20132 RIR","Controlled"],"11":["Build","Same load","Top of range","1 RIR","Controlled"],"12":["Deload","One step lighter where practical","2 easy sets","4 RIR","Easy"],"13":["Peak build","Heaviest controlled available","Low-middle range","2 RIR","1-sec pause"],"14":["Build","Same load","+1 rep per set","1\u20132 RIR","Pause reps"],"15":["Performance","Same load","Beat Week 14 total reps","0\u20131 RIR final set only","Controlled"],"16":["Reset","Base or lighter","2 easy sets","4\u20135 RIR","Easy"]};
 const DAYS = Object.keys(PROGRAM);
 const STORAGE_KEY = "macWorkoutDataV1";
 
 let state = loadState();
+let sessionWorkoutDay = dayName();
 function blankState(){return {currentWeek:1,dark:false,logs:{},checkins:{},finished:{},selectedWorkoutDay:"",metaUpdatedAt:0,resetEpoch:0}}
 function loadState(){try{return Object.assign(blankState(),JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"));}catch(e){return blankState();}}
 function saveState(){
@@ -224,13 +225,81 @@ function saveState(){
   localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
   scheduleCloudSave();
 }
-function keyFor(day,exIndex){return `${state.currentWeek}|${day}|${exIndex}`;}
+function keyFor(day,exIndex,exerciseName=""){
+ const safeName=String(exerciseName||`exercise-${exIndex}`)
+   .toLowerCase()
+   .replace(/[^a-z0-9]+/g,"-")
+   .replace(/^-|-$/g,"");
+ return `${state.currentWeek}|${day}|${safeName}`;
+}
+
+function keyForWeek(week,day,exerciseName){
+ const safeName=String(exerciseName||"exercise")
+   .toLowerCase()
+   .replace(/[^a-z0-9]+/g,"-")
+   .replace(/^-|-$/g,"");
+ return `${week}|${day}|${safeName}`;
+}
+
+function findPreviousLog(day,exerciseName){
+ for(let week=Number(state.currentWeek)-1;week>=1;week--){
+   const log=state.logs[keyForWeek(week,day,exerciseName)];
+   if(log && (
+     (Array.isArray(log.sets)&&log.sets.some(v=>String(v||"").trim()!=="")) ||
+     String(log.rir||"").trim()!=="" ||
+     String(log.load||"").trim()!==""
+   )){
+     return {week,log};
+   }
+ }
+ return null;
+}
+
+function cleanRepValues(log){
+ return Array.isArray(log?.sets)
+   ? log.sets.map(v=>Number(String(v||"").replace(/[^0-9.]/g,""))).filter(v=>Number.isFinite(v)&&v>0)
+   : [];
+}
+
+function upperRepTarget(repsText){
+ const match=String(repsText||"").match(/(\d+)\s*[–-]\s*(\d+)/);
+ return match?Number(match[2]):null;
+}
+
+function previousPerformanceText(ex,previous){
+ if(!previous) return "No prior workout recorded.";
+ const sets=Array.isArray(previous.log.sets)
+   ? previous.log.sets.filter(v=>String(v||"").trim()!=="")
+   : [];
+ const load=String(previous.log.load||ex.load||"").trim()||ex.load;
+ return `Week ${previous.week}: ${load} • ${sets.length?sets.join(" / "):"sets not recorded"}`;
+}
+
+function buildProgressTarget(ex,previous){
+ if(!previous) return "Establish a clean baseline today.";
+ const values=cleanRepValues(previous.log);
+ const load=String(previous.log.load||ex.load||"").trim()||ex.load;
+ if(!values.length) return `Repeat ${load} with clean form and record every set.`;
+
+ const top=upperRepTarget(ex.reps);
+ const target=[...values];
+ let changed=false;
+ for(let i=0;i<target.length;i++){
+   if(!top||target[i]<top){
+     target[i]+=1;
+     changed=true;
+     break;
+   }
+ }
+ if(changed) return `${load} • target ${target.join(" / ")} reps`;
+ return `${load} • top of range reached; repeat cleanly before increasing difficulty or load.`;
+}
 function dayName(){return DAYS[(new Date()).getDay()===0?6:(new Date()).getDay()-1];}
 function dateLabel(){return new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});}
 function setOptions(el){el.innerHTML="";for(let i=1;i<=16;i++){const o=document.createElement("option");o.value=i;o.textContent=`Week ${i}`;el.appendChild(o)}el.value=state.currentWeek;}
 function activeWorkoutDay(){
  const selected=document.getElementById("todayWorkoutSelect")?.value;
- return selected||state.selectedWorkoutDay||dayName();
+ return selected||sessionWorkoutDay||dayName();
 }
 function renderToday(){
  const scheduled=dayName(),day=activeWorkoutDay(),workout=PROGRAM[day],guide=WEEK_PLAN[String(state.currentWeek)];
@@ -250,21 +319,126 @@ function renderToday(){
  workout.exercises.forEach((ex,i)=>list.appendChild(makeExercise(day,ex,i,true)));
 }
 function makeExercise(day,ex,i,editable){
- const card=document.createElement("article");card.className="exercise-card card";card.dataset.index=i;
- const saved=state.logs[keyFor(day,i)]||{sets:Array(ex.sets).fill(""),rir:"",load:ex.load,skipped:false};
- if(saved.skipped)card.classList.add("skipped");
- const head=document.createElement("div");head.className="exercise-head";
- head.innerHTML=`<div><h3 class="exercise-name">${ex.name}</h3><div class="exercise-prescription">${ex.load} • ${ex.sets} × ${ex.reps} • Rest ${ex.rest}</div></div>`;
- if(editable){const b=document.createElement("button");b.className="skip-btn";b.textContent=saved.skipped?"Undo":"Skip";b.onclick=()=>{saved.skipped=!saved.skipped;state.logs[keyFor(day,i)]=saved;saveState();renderToday();};head.appendChild(b)}
+ const card=document.createElement("article");
+ card.className="exercise-card card";
+ card.dataset.index=i;
+
+ const logKey=keyFor(day,i,ex.name);
+ const saved=state.logs[logKey]||{
+   sets:Array(ex.sets).fill(""),
+   rir:"",
+   load:ex.load,
+   skipped:false,
+   exerciseName:ex.name
+ };
+
+ if(!Array.isArray(saved.sets)) saved.sets=[];
+ while(saved.sets.length<ex.sets) saved.sets.push("");
+ if(saved.sets.length>ex.sets) saved.sets=saved.sets.slice(0,ex.sets);
+ if(!saved.load) saved.load=ex.load;
+
+ if(saved.skipped) card.classList.add("skipped");
+
+ const head=document.createElement("div");
+ head.className="exercise-head";
+ head.innerHTML=`<div>
+   <h3 class="exercise-name">${ex.name}</h3>
+   <div class="exercise-prescription">${ex.load} • ${ex.sets} × ${ex.reps} • Rest ${ex.rest}</div>
+ </div>`;
+
+ if(editable){
+   const b=document.createElement("button");
+   b.className="skip-btn";
+   b.textContent=saved.skipped?"Undo":"Skip";
+   b.onclick=()=>{
+     saved.skipped=!saved.skipped;
+     saved.exerciseName=ex.name;
+     state.logs[logKey]=saved;
+     saveState();
+     renderToday();
+     renderProgram();
+   };
+   head.appendChild(b);
+ }
  card.appendChild(head);
- const sets=document.createElement("div");sets.className="sets";
- for(let s=0;s<ex.sets;s++){const row=document.createElement("div");row.className="set-row"+(saved.sets[s]?" done":"");row.innerHTML=`<span>Set ${s+1}</span>`;const inp=document.createElement("input");inp.type="text";inp.inputMode="numeric";inp.placeholder=ex.reps;inp.value=saved.sets[s]||"";inp.disabled=!editable;inp.oninput=()=>{saved.sets[s]=inp.value;state.logs[keyFor(day,i)]=saved;saveState();row.classList.toggle("done",!!inp.value)};row.appendChild(inp);sets.appendChild(row)}card.appendChild(sets);
- const foot=document.createElement("div");foot.className="exercise-footer";
- const rir=document.createElement("label");rir.innerHTML='RIR<select><option value="">—</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4+</option></select>';rir.querySelector("select").value=saved.rir;rir.querySelector("select").disabled=!editable;rir.querySelector("select").onchange=e=>{saved.rir=e.target.value;state.logs[keyFor(day,i)]=saved;saveState()};
- const load=document.createElement("label");load.innerHTML='Actual load<input type="text">';load.querySelector("input").value=saved.load||ex.load;load.querySelector("input").disabled=!editable;load.querySelector("input").oninput=e=>{saved.load=e.target.value;state.logs[keyFor(day,i)]=saved;saveState()};
- foot.append(rir,load);card.appendChild(foot);return card;
+
+ const previous=findPreviousLog(day,ex.name);
+ const progress=document.createElement("div");
+ progress.className="progress-cue";
+ progress.innerHTML=`
+   <div class="progress-cue-row">
+     <span>Last workout</span>
+     <strong>${previousPerformanceText(ex,previous)}</strong>
+   </div>
+   <div class="progress-cue-row target">
+     <span>Today's target</span>
+     <strong>${buildProgressTarget(ex,previous)}</strong>
+   </div>`;
+ card.appendChild(progress);
+
+ const sets=document.createElement("div");
+ sets.className="sets";
+ for(let s=0;s<ex.sets;s++){
+   const row=document.createElement("div");
+   row.className="set-row"+(saved.sets[s]?" done":"");
+   row.innerHTML=`<span>Set ${s+1}</span>`;
+
+   const inp=document.createElement("input");
+   inp.type="text";
+   inp.inputMode="numeric";
+   inp.placeholder=ex.reps;
+   inp.value=saved.sets[s]||"";
+   inp.disabled=!editable;
+   inp.oninput=()=>{
+     saved.sets[s]=inp.value;
+     saved.exerciseName=ex.name;
+     state.logs[logKey]=saved;
+     saveState();
+     row.classList.toggle("done",!!inp.value);
+   };
+   row.appendChild(inp);
+   sets.appendChild(row);
+ }
+ card.appendChild(sets);
+
+ const foot=document.createElement("div");
+ foot.className="exercise-footer";
+
+ const rir=document.createElement("label");
+ rir.innerHTML='RIR<select><option value="">—</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4+</option></select>';
+ const rirSelect=rir.querySelector("select");
+ rirSelect.value=saved.rir||"";
+ rirSelect.disabled=!editable;
+ rirSelect.onchange=e=>{
+   saved.rir=e.target.value;
+   saved.exerciseName=ex.name;
+   state.logs[logKey]=saved;
+   saveState();
+ };
+
+ const load=document.createElement("label");
+ load.innerHTML='Actual load<input type="text">';
+ const loadInput=load.querySelector("input");
+ loadInput.value=saved.load||ex.load;
+ loadInput.placeholder=ex.load;
+ loadInput.disabled=!editable;
+ loadInput.oninput=e=>{
+   saved.load=e.target.value;
+   saved.exerciseName=ex.name;
+   state.logs[logKey]=saved;
+   saveState();
+ };
+
+ foot.append(rir,load);
+ card.appendChild(foot);
+ return card;
 }
-function renderProgram(){const day=document.getElementById("programDaySelect").value||dayName(),list=document.getElementById("programList");list.innerHTML="";PROGRAM[day].exercises.forEach((ex,i)=>list.appendChild(makeExercise(day,ex,i,false)));}
+function renderProgram(){
+ const day=document.getElementById("programDaySelect").value||dayName();
+ const list=document.getElementById("programList");
+ list.innerHTML="";
+ PROGRAM[day].exercises.forEach((ex,i)=>list.appendChild(makeExercise(day,ex,i,true)));
+}
 function finishWorkout(){const day=activeWorkoutDay();state.finished[`${state.currentWeek}|${day}`]=true;saveState();alert(`${day} — ${PROGRAM[day].title} saved. Strong work.`);renderProgress();}
 function saveCheckin(){
  const w=state.currentWeek;state.checkins[w]={weight:val("bodyWeight"),waist:val("waist"),sleep:val("sleep"),energy:val("energy"),soreness:val("soreness"),notes:val("weeklyNotes"),date:new Date().toISOString()};saveState();renderProgress();alert("Weekly check-in saved.");
@@ -288,10 +462,13 @@ function init(){
  ["weekSelect","settingsWeekSelect"].forEach(id=>{const e=document.getElementById(id);setOptions(e);e.onchange=()=>{state.currentWeek=Number(e.value);saveState();document.getElementById("weekSelect").value=state.currentWeek;document.getElementById("settingsWeekSelect").value=state.currentWeek;renderToday();renderProgress();}});
  const todaySelect=document.getElementById("todayWorkoutSelect");
  DAYS.forEach(d=>{const o=document.createElement("option");o.value=d;o.textContent=d+" — "+PROGRAM[d].title;todaySelect.appendChild(o)});
- const initialDay=state.selectedWorkoutDay&&PROGRAM[state.selectedWorkoutDay]?state.selectedWorkoutDay:dayName();
+ const initialDay=dayName();
+ sessionWorkoutDay=initialDay;
  todaySelect.value=initialDay;
- state.selectedWorkoutDay=initialDay;
- todaySelect.onchange=()=>{state.selectedWorkoutDay=todaySelect.value;saveState();renderToday();};
+ todaySelect.onchange=()=>{
+   sessionWorkoutDay=todaySelect.value;
+   renderToday();
+ };
  const ds=document.getElementById("programDaySelect");DAYS.forEach(d=>{const o=document.createElement("option");o.value=d;o.textContent=d+" — "+PROGRAM[d].title;ds.appendChild(o)});ds.value=dayName();ds.onchange=renderProgram;
  document.querySelectorAll(".bottom-nav button").forEach(b=>b.onclick=()=>showScreen(b.dataset.screen,b.textContent.trim().replace(/[●▦↗⚙]/g,"")));
  document.getElementById("themeBtn").onclick=()=>{state.dark=!state.dark;saveState();document.body.classList.toggle("dark",state.dark);renderProgress()};

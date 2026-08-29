@@ -56,20 +56,14 @@ Workout records are stored locally in the browser on the device. Use Export Back
 - Prevents an iPhone or iPad with stale local data from restoring deleted test entries.
 
 
-## Chest-priority military-hybrid program
-- Four primary training days: Monday, Tuesday, Thursday, Saturday.
-- Saturday is the main heavy chest/upper-body session.
-- Thursday provides a second chest exposure without compromising Saturday.
-- Wednesday, Friday, and Sunday are recovery/rest focused.
-- All prescribed dumbbell loads use only 15, 20, 30, 40, or 50 lb dumbbells.
-- Exercises are chosen for a small-bedroom training footprint.
-- Primary sessions are designed to remain under 60 minutes.
-- The 16-week progression starts with a re-entry phase after time away from consistent training.
-
-
-## Program-tab editability fix
-- Program tab is now fully editable instead of read-only.
-- Tuesday and every other selected workout can be logged directly from Program.
-- Today and Program use the same workout log and stay synchronized.
-- Workout logs are keyed to exercise names instead of exercise position.
-- Old test data from a previous exercise can no longer bleed into a newly assigned exercise at the same position.
+## Smart training release
+- Starts on the actual calendar day every time the app is newly opened or reloaded.
+- Make-up workout selection lasts only for the current session.
+- Program tab is editable.
+- Workout data is keyed by exercise name to prevent stale data from bleeding into a new exercise.
+- Each exercise shows the last recorded performance from an earlier week.
+- Each exercise shows a conservative beat-last-workout target.
+- Progression favors adding a rep before increasing load.
+- Thursday and Saturday use a high-to-low pulley fly.
+- Saturday remains the primary heavy chest/upper-body day.
+- Firebase real-time sync and authoritative cloud reset are preserved.
