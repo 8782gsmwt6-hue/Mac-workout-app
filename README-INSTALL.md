@@ -67,3 +67,10 @@ Workout records are stored locally in the browser on the device. Use Export Back
 - Thursday and Saturday use a high-to-low pulley fly.
 - Saturday remains the primary heavy chest/upper-body day.
 - Firebase real-time sync and authoritative cloud reset are preserved.
+
+## Smart Coach v1
+- Pre-workout coach briefing.
+- Automatic PR detection for load, reps, and tracked volume.
+- Rest timer starts when a new set is logged.
+- Post-workout summary with completion, volume, and PRs.
+- Basic strength trend by exercise after at least two logged weeks.

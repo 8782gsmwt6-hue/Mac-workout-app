@@ -55,6 +55,10 @@
     <label>Workout to do today<select id="todayWorkoutSelect"></select></label>
   </div>
   <div id="scheduleNote" class="schedule-note"></div>
+<div class="card coach-card">
+  <div class="coach-title-row"><div><div class="eyebrow">SMART COACH</div><h3>Pre-workout briefing</h3></div><span id="coachReadinessBadge" class="badge">Ready</span></div>
+  <div id="coachBriefing" class="coach-briefing">Loading your training history…</div>
+</div>
   <div id="exerciseList"></div>
   <button id="finishWorkoutBtn" class="primary wide">Finish workout</button>
 </section>
@@ -111,6 +115,16 @@
 </section>
 </main>
 
+<div id="restTimerPanel" class="rest-timer-panel hidden">
+  <div><span>Rest timer</span><strong id="restTimerDisplay">0:00</strong></div>
+  <div class="rest-timer-actions"><button id="restTimerAddBtn" class="small-btn" type="button">+30s</button><button id="restTimerStopBtn" class="small-btn delete" type="button">Stop</button></div>
+</div>
+<div id="workoutSummaryModal" class="summary-modal hidden">
+  <div class="summary-card">
+    <div class="coach-title-row"><div><div class="eyebrow">WORKOUT COMPLETE</div><h2>Session summary</h2></div><button id="closeSummaryBtn" class="icon-btn" type="button">×</button></div>
+    <div id="workoutSummaryContent"></div>
+  </div>
+</div>
 <nav class="bottom-nav">
 <button data-screen="todayScreen" class="active"><span>●</span>Today</button>
 <button data-screen="programScreen"><span>▦</span>Program</button>

@@ -47,3 +47,24 @@ button:disabled{opacity:.65;cursor:not-allowed}
 .progress-cue-row strong{font-size:12px;line-height:1.35}
 .progress-cue-row.target strong{color:var(--primary)}
 @media(max-width:520px){.progress-cue-row{grid-template-columns:1fr}.progress-cue-row span{margin-bottom:-4px}}
+
+.coach-card{border-left:4px solid var(--primary)}
+.coach-title-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.coach-title-row h3,.coach-title-row h2{margin:2px 0 0}
+.coach-briefing{display:grid;gap:8px;font-size:14px;line-height:1.45}
+.coach-point{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px}
+.coach-point strong{display:block;margin-bottom:2px}
+.trend-block{margin:10px 0 12px;padding:10px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
+.trend-block span{display:block;color:var(--muted);font-size:11px;font-weight:700}
+.trend-block strong{display:block;margin-top:3px;font-size:12px}
+.rest-timer-panel{position:fixed;right:12px;bottom:90px;z-index:40;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:12px;display:flex;align-items:center;gap:14px}
+.rest-timer-panel.hidden{display:none}.rest-timer-panel span{display:block;color:var(--muted);font-size:11px}.rest-timer-panel strong{display:block;font-size:24px}
+.rest-timer-actions{display:flex;gap:6px}
+.summary-modal{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;padding:16px}.summary-modal.hidden{display:none}
+.summary-card{width:min(700px,100%);max-height:88vh;overflow:auto;background:var(--card);border-radius:24px 24px 16px 16px;padding:18px;box-shadow:0 18px 50px rgba(0,0,0,.22)}
+.summary-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0}
+.summary-stat{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:12px}
+.summary-stat span{display:block;color:var(--muted);font-size:12px}.summary-stat strong{display:block;font-size:20px;margin-top:4px}
+.summary-pr-list{display:grid;gap:8px}.summary-pr{background:#fff8d6;color:#5f4700;border-radius:12px;padding:10px;font-weight:800}
+body.dark .summary-pr{background:#4a3d0e;color:#ffe999}
+@media(max-width:520px){.rest-timer-panel{left:12px;right:12px;bottom:88px;justify-content:space-between}}

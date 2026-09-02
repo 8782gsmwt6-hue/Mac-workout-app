@@ -218,7 +218,7 @@ const STORAGE_KEY = "macWorkoutDataV1";
 
 let state = loadState();
 let sessionWorkoutDay = dayName();
-function blankState(){return {currentWeek:1,dark:false,logs:{},checkins:{},finished:{},selectedWorkoutDay:"",metaUpdatedAt:0,resetEpoch:0}}
+function blankState(){return {currentWeek:1,dark:false,logs:{},checkins:{},finished:{},selectedWorkoutDay:"",metaUpdatedAt:0,resetEpoch:0,prs:{},summaries:{}}}
 function loadState(){try{return Object.assign(blankState(),JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"));}catch(e){return blankState();}}
 function saveState(){
   state.metaUpdatedAt=Date.now();
@@ -301,6 +301,45 @@ function activeWorkoutDay(){
  const selected=document.getElementById("todayWorkoutSelect")?.value;
  return selected||sessionWorkoutDay||dayName();
 }
+
+let restTimerSeconds=0,restTimerInterval=null;
+function parseRestSeconds(text){
+ const s=String(text||"").toLowerCase();
+ let m=s.match(/(\d+)\s*[–-]\s*(\d+)\s*sec/); if(m)return Number(m[2]);
+ m=s.match(/(\d+)\s*[–-]\s*(\d+)\s*min/); if(m)return Number(m[2])*60;
+ m=s.match(/(\d+)\s*min/); if(m)return Number(m[1])*60;
+ m=s.match(/(\d+)\s*sec/); if(m)return Number(m[1]);
+ return 90;
+}
+function formatTimer(sec){return `${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`;}
+function renderRestTimer(){const p=document.getElementById("restTimerPanel"),d=document.getElementById("restTimerDisplay");if(!p||!d)return;if(restTimerSeconds<=0){p.classList.add("hidden");d.textContent="0:00";return}p.classList.remove("hidden");d.textContent=formatTimer(restTimerSeconds)}
+function startRestTimer(seconds){clearInterval(restTimerInterval);restTimerSeconds=Number(seconds||0);if(restTimerSeconds<=0)return;renderRestTimer();restTimerInterval=setInterval(()=>{restTimerSeconds--;renderRestTimer();if(restTimerSeconds<=0){clearInterval(restTimerInterval);restTimerInterval=null;if(navigator.vibrate)navigator.vibrate([150,80,150])}},1000)}
+function stopRestTimer(){clearInterval(restTimerInterval);restTimerInterval=null;restTimerSeconds=0;renderRestTimer()}
+function numericLoad(t){const n=String(t||"").match(/\d+(\.\d+)?/);if(!n)return 0;const v=Number(n[0]),s=String(t||"").toLowerCase();return (s.includes("each")||s.includes("2 x")||s.includes("2×"))?v*2:v}
+function exerciseHistory(day,name){const r=[];for(let w=1;w<=16;w++){const l=state.logs[keyForWeek(w,day,name)];if(!l)continue;const reps=cleanRepValues(l);if(!reps.length)continue;const load=numericLoad(l.load);r.push({week:w,load,reps,volume:load*reps.reduce((a,b)=>a+b,0)})}return r}
+function trendText(day,name){const h=exerciseHistory(day,name);if(h.length<2)return"Need at least 2 logged weeks for a trend.";const a=h[h.length-2],b=h[h.length-1],d=b.volume-a.volume;return d>0?`Volume up ${Math.round(d)} lb-reps vs Week ${a.week}.`:d<0?`Volume down ${Math.abs(Math.round(d))} lb-reps vs Week ${a.week}.`:`Volume matched Week ${a.week}.`}
+function evaluateExercisePR(day,ex,log){
+ const reps=cleanRepValues(log);if(!reps.length)return null;const load=numericLoad(log.load),bestReps=Math.max(...reps),volume=load*reps.reduce((a,b)=>a+b,0),k=`${day}|${ex.name}`,p=state.prs[k]||{bestLoad:0,bestReps:0,bestVolume:0},types=[];
+ if(load>p.bestLoad)types.push(`load ${log.load||ex.load}`);if(bestReps>p.bestReps)types.push(`reps ${bestReps}`);if(volume>p.bestVolume&&load>0)types.push(`volume ${Math.round(volume)} lb-reps`);
+ if(types.length)state.prs[k]={bestLoad:Math.max(p.bestLoad,load),bestReps:Math.max(p.bestReps,bestReps),bestVolume:Math.max(p.bestVolume,volume),updatedAt:Date.now()};
+ return types.length?types:null
+}
+function buildCoachBriefing(){
+ const day=activeWorkoutDay(),w=PROGRAM[day],box=document.getElementById("coachBriefing");if(!box)return;
+ const p=day==="Saturday"?"Primary goal: chest strength and hypertrophy. Protect your pressing performance and use the full rest periods.":day==="Thursday"?"Secondary chest exposure: quality reps today so Saturday stays strong.":day==="Tuesday"?"Pulling strength day: prioritize clean pull-ups and strong rows.":day==="Monday"?"Lower-body strength and core. Keep technique clean and leave reps in reserve.":"Recovery day: finish fresher than you started.";
+ const ex=w.exercises.find(x=>findPreviousLog(day,x.name)),target=ex?`${ex.name}: ${buildProgressTarget(ex,findPreviousLog(day,ex.name))}`:"Establish clean baseline numbers today.";
+ box.innerHTML=`<div class="coach-point"><strong>Today's priority</strong>${p}</div><div class="coach-point"><strong>Main progression target</strong>${target}</div><div class="coach-point"><strong>Session rule</strong>Stay within the prescribed rest periods and finish inside 60 minutes.</div>`
+}
+function buildWorkoutSummary(day){
+ const w=PROGRAM[day];let completed=0,total=0,volume=0;const prs=[];
+ w.exercises.forEach((ex,i)=>{total+=Number(ex.sets||0);const l=state.logs[keyFor(day,i,ex.name)];if(!l)return;const reps=cleanRepValues(l);completed+=reps.length;volume+=numericLoad(l.load)*reps.reduce((a,b)=>a+b,0);const pr=evaluateExercisePR(day,ex,l);if(pr)prs.push(`${ex.name}: ${pr.join(", ")}`)});
+ const s={day,week:state.currentWeek,completedSets:completed,totalSets:total,totalVolume:volume,adherence:total?Math.round(completed/total*100):0,prs,createdAt:new Date().toISOString()};state.summaries[`${state.currentWeek}|${day}`]=s;return s
+}
+function showWorkoutSummary(s){
+ const m=document.getElementById("workoutSummaryModal"),c=document.getElementById("workoutSummaryContent");if(!m||!c)return;
+ c.innerHTML=`<div class="summary-grid"><div class="summary-stat"><span>Sets completed</span><strong>${s.completedSets}/${s.totalSets}</strong></div><div class="summary-stat"><span>Completion</span><strong>${s.adherence}%</strong></div><div class="summary-stat"><span>Tracked volume</span><strong>${Math.round(s.totalVolume).toLocaleString()}</strong></div><div class="summary-stat"><span>New PRs</span><strong>${s.prs.length}</strong></div></div><h3>Coach recap</h3><p>${s.adherence>=90?"Strong session. Keep progressing conservatively.":s.adherence>=70?"Solid work. Complete more prescribed sets before adding load.":"Treat this as a partial session. Don't compensate by doubling volume later."}</p><h3>PRs</h3>${s.prs.length?`<div class="summary-pr-list">${s.prs.map(x=>`<div class="summary-pr">🔥 ${x}</div>`).join("")}</div>`:'<div class="muted">No new PRs this session.</div>'}`;
+ m.classList.remove("hidden")
+}
 function renderToday(){
  const scheduled=dayName(),day=activeWorkoutDay(),workout=PROGRAM[day],guide=WEEK_PLAN[String(state.currentWeek)];
  document.getElementById("todayDate").textContent=dateLabel();
@@ -317,6 +356,7 @@ function renderToday(){
  }
  const list=document.getElementById("exerciseList");list.innerHTML="";
  workout.exercises.forEach((ex,i)=>list.appendChild(makeExercise(day,ex,i,true)));
+ buildCoachBriefing();
 }
 function makeExercise(day,ex,i,editable){
  const card=document.createElement("article");
@@ -375,6 +415,10 @@ function makeExercise(day,ex,i,editable){
      <strong>${buildProgressTarget(ex,previous)}</strong>
    </div>`;
  card.appendChild(progress);
+ const trend=document.createElement("div");
+ trend.className="trend-block";
+ trend.innerHTML=`<span>Strength trend</span><strong>${trendText(day,ex.name)}</strong>`;
+ card.appendChild(trend);
 
  const sets=document.createElement("div");
  sets.className="sets";
@@ -390,11 +434,13 @@ function makeExercise(day,ex,i,editable){
    inp.value=saved.sets[s]||"";
    inp.disabled=!editable;
    inp.oninput=()=>{
+     const wasEmpty=!saved.sets[s];
      saved.sets[s]=inp.value;
      saved.exerciseName=ex.name;
      state.logs[logKey]=saved;
      saveState();
      row.classList.toggle("done",!!inp.value);
+     if(wasEmpty&&inp.value)startRestTimer(parseRestSeconds(ex.rest));
    };
    row.appendChild(inp);
    sets.appendChild(row);
@@ -439,7 +485,7 @@ function renderProgram(){
  list.innerHTML="";
  PROGRAM[day].exercises.forEach((ex,i)=>list.appendChild(makeExercise(day,ex,i,true)));
 }
-function finishWorkout(){const day=activeWorkoutDay();state.finished[`${state.currentWeek}|${day}`]=true;saveState();alert(`${day} — ${PROGRAM[day].title} saved. Strong work.`);renderProgress();}
+function finishWorkout(){const day=activeWorkoutDay();state.finished[`${state.currentWeek}|${day}`]=true;const s=buildWorkoutSummary(day);saveState();stopRestTimer();renderProgress();renderToday();renderProgram();showWorkoutSummary(s);}
 function saveCheckin(){
  const w=state.currentWeek;state.checkins[w]={weight:val("bodyWeight"),waist:val("waist"),sleep:val("sleep"),energy:val("energy"),soreness:val("soreness"),notes:val("weeklyNotes"),date:new Date().toISOString()};saveState();renderProgress();alert("Weekly check-in saved.");
 }
@@ -472,7 +518,10 @@ function init(){
  const ds=document.getElementById("programDaySelect");DAYS.forEach(d=>{const o=document.createElement("option");o.value=d;o.textContent=d+" — "+PROGRAM[d].title;ds.appendChild(o)});ds.value=dayName();ds.onchange=renderProgram;
  document.querySelectorAll(".bottom-nav button").forEach(b=>b.onclick=()=>showScreen(b.dataset.screen,b.textContent.trim().replace(/[●▦↗⚙]/g,"")));
  document.getElementById("themeBtn").onclick=()=>{state.dark=!state.dark;saveState();document.body.classList.toggle("dark",state.dark);renderProgress()};
- document.getElementById("finishWorkoutBtn").onclick=finishWorkout;document.getElementById("saveCheckinBtn").onclick=saveCheckin;document.getElementById("exportBtn").onclick=exportData;
+ document.getElementById("finishWorkoutBtn").onclick=finishWorkout;
+ document.getElementById("restTimerAddBtn").onclick=()=>{restTimerSeconds+=30;renderRestTimer();};
+ document.getElementById("restTimerStopBtn").onclick=stopRestTimer;
+ document.getElementById("closeSummaryBtn").onclick=()=>document.getElementById("workoutSummaryModal").classList.add("hidden");document.getElementById("saveCheckinBtn").onclick=saveCheckin;document.getElementById("exportBtn").onclick=exportData;
  document.getElementById("importInput").onchange=e=>e.target.files[0]&&importData(e.target.files[0]);document.getElementById("resetBtn").onclick=clearAllWorkoutData;
  renderToday();renderProgress();if("serviceWorker" in navigator)navigator.serviceWorker.register("service-worker.js").catch(()=>{});
 }
