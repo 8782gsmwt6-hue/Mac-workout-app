@@ -95,7 +95,7 @@ function stateHasUserData(candidate){
 
 function applyRemoteState(remote){
   applyingRemote=true;
-  state=Object.assign(blankState(),remote||{});
+  state=Object.assign(blankState(),remote||{});state.blockNumber=Number(state.blockNumber)||1;state.archivedBlocks=Array.isArray(state.archivedBlocks)?state.archivedBlocks:[];state.skippedDays=state.skippedDays||{};
   localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
   applyingRemote=false;
   applyStateToUi();
@@ -112,7 +112,7 @@ async function pushLocalState(force=false){
     resetEpoch:Number(state.resetEpoch||0),
     lastDeviceId:deviceId,
     updatedAt:serverTimestamp(),
-    schemaVersion:4
+    schemaVersion:5
   },{merge:true});
   setSyncStatus("Synced","good");
   setLastSynced(Date.now());
@@ -246,9 +246,12 @@ const DAYS = Object.keys(PROGRAM);
 const STORAGE_KEY = "macWorkoutDataV1";
 
 let state = loadState();
+state.blockNumber=Math.max(1,Number(state.blockNumber)||1);
+if(!Array.isArray(state.archivedBlocks))state.archivedBlocks=[];
+if(!state.skippedDays)state.skippedDays={};
 let sessionWorkoutDay = dayName();
 if(!Number.isFinite(Number(state.activeTrainingWeek)) || !state.activeTrainingWeek) state.activeTrainingWeek=Number(state.currentWeek)||1;
-function blankState(){return {currentWeek:1,activeTrainingWeek:null,weekOneMonday:"",lastTrainingMonday:"",dark:false,logs:{},checkins:{},finished:{},selectedWorkoutDay:"",metaUpdatedAt:0,resetEpoch:0,prs:{},summaries:{}}}
+function blankState(){return {currentWeek:1,activeTrainingWeek:null,weekOneMonday:"",lastTrainingMonday:"",dark:false,logs:{},checkins:{},finished:{},selectedWorkoutDay:"",metaUpdatedAt:0,resetEpoch:0,prs:{},summaries:{},blockNumber:1,archivedBlocks:[],skippedDays:{}}}
 function loadState(){try{return Object.assign(blankState(),JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"));}catch(e){return blankState();}}
 function saveState(){
   state.metaUpdatedAt=Date.now();
@@ -271,39 +274,64 @@ function keyForWeek(week,day,exerciseName){
  return `${week}|${day}|${safeName}`;
 }
 
+function allBlockSnapshots(){
+ return [...(state.archivedBlocks||[]).map(b=>({...b,archived:true})),{number:Number(state.blockNumber)||1,logs:state.logs,finished:state.finished,checkins:state.checkins,summaries:state.summaries}];
+}
+function exerciseEntries(name,throughCurrent=true){
+ const arr=[];
+ for(const block of allBlockSnapshots()){
+  for(let w=1;w<=16;w++)for(const day of DAYS){
+   if(throughCurrent && !block.archived && (w>Number(state.currentWeek)||(w===Number(state.currentWeek)&&DAYS.indexOf(day)>=DAYS.indexOf(activeWorkoutDay()))))continue;
+   const log=block.logs?.[keyForWeek(w,day,name)];
+   if(hasCompletedSets(log))arr.push({block:block.number,week:w,day,log});
+  }
+ }
+ return arr;
+}
+function lastExerciseEntry(name){return exerciseEntries(name).at(-1)||null;}
+function markDaySkipped(){
+ const day=activeWorkoutDay(),key=`${state.currentWeek}|${day}`;
+ if(state.finished[key]){alert('This workout is marked finished. It cannot also be skipped.');return;}
+ if(!state.skippedDays[key] && PROGRAM[day].exercises.some(ex=>hasCompletedSets(state.logs[keyForWeek(state.currentWeek,day,ex.name)]))){alert("This day already has logged sets. Clear the sets before marking the entire day skipped.");return;}
+ state.skippedDays[key]=!state.skippedDays[key];saveState();renderToday();renderProgress();
+}
+function startNewTrainingBlock(){
+ const count=Object.keys(state.logs||{}).length;
+ const message=`Start Block ${Number(state.blockNumber||1)+1} at Week 1? Your entire current 16-week block (${count} saved exercise records) will be archived. Your next targets will use all earlier blocks. Export a backup first.`;
+ if(!confirm(message))return;
+ // Preserve completed data in its own immutable historical block. Only reset current-block slots.
+ const archived={number:Number(state.blockNumber)||1,logs:structuredClone(state.logs||{}),checkins:structuredClone(state.checkins||{}),finished:structuredClone(state.finished||{}),summaries:structuredClone(state.summaries||{}),skippedDays:structuredClone(state.skippedDays||{}),archivedAt:new Date().toISOString()};
+ state.archivedBlocks.push(archived);
+ state.blockNumber=archived.number+1;
+ state.logs={};state.checkins={};state.finished={};state.summaries={};state.skippedDays={};
+ state.currentWeek=1;state.activeTrainingWeek=1;state.lastTrainingMonday=localMondayKey();state.weekOneMonday=localMondayKey();
+ saveState();applyStateToUi();alert(`Block ${state.blockNumber} started. Older workouts are preserved for progression and in exported backups.`);
+}
 function hasCompletedSets(log){return Array.isArray(log?.sets)&&log.sets.some(v=>Number(v)>0)}
 function findPreviousLog(day,exerciseName){
- for(let week=Number(state.currentWeek)-1;week>=1;week--){
-   const log=state.logs[keyForWeek(week,day,exerciseName)];
-   if(hasCompletedSets(log)) return {week,log};
- }
- return null;
+ const hits=exerciseEntries(exerciseName).filter(h=>h.day===day);
+ return hits.length?{...hits[hits.length-1]}:null;
 }
-// Inherit the most recent earlier completed working load for this exercise,
-// across all training days. The program's original load is just the fallback.
 function inheritedLoad(day,exerciseName,fallback){
- const targetWeek=Number(state.currentWeek),targetDay=DAYS.indexOf(day);
- for(let week=targetWeek;week>=1;week--){
-   for(let di=(week===targetWeek?targetDay-1:DAYS.length-1);di>=0;di--){
-     const log=state.logs[keyForWeek(week,DAYS[di],exerciseName)];
-     if(hasCompletedSets(log)&&String(log.load||'').trim()) return String(log.load).trim();
-   }
- }
- return fallback;
+ const latest=lastExerciseEntry(exerciseName);
+ return latest&&String(latest.log.load||'').trim()?String(latest.log.load).trim():fallback;
 }
 function workingLoad(day,ex,log){return String(log?.load||inheritedLoad(day,ex.name,ex.load)).trim()||ex.load;}
 function setRir(log,index){return Array.isArray(log?.setRirs)?String(log.setRirs[index]??''):'';}
 function progressionRecommendation(day,ex){
- const previous=findPreviousLog(day,ex.name);
- if(!previous)return 'Record your first working sets and RIR to establish a baseline.';
- const vals=cleanRepValues(previous.log),top=upperRepTarget(ex.reps);
- const tracked=vals.map((_,i)=>setRir(previous.log,i));
- if(top&&vals.length>=ex.sets&&vals.every(n=>n>=top)&&tracked.every(r=>r!==''&&Number(r)>=1&&Number(r)<=2))
-   return 'Ready to consider the next available weight. Confirm the increase after a clean session.';
- if(vals.length&&tracked.some(r=>r===''))return 'Log RIR for every set to unlock effort-aware load recommendations.';
- return 'Keep your current working weight; build clean reps at 1–3 RIR.';
+ const prior=lastExerciseEntry(ex.name);
+ if(!prior)return 'Log working sets and per-set RIR to establish a baseline.';
+ const vals=cleanRepValues(prior.log),top=upperRepTarget(ex.reps),bottom=Number(String(ex.reps).match(/\d+/)?.[0]||0);
+ const tracked=vals.map((_,i)=>setRir(prior.log,i));
+ const effortComplete=vals.length>=Math.min(2,Number(ex.sets))&&tracked.length===vals.length&&tracked.every(r=>r!==''&&Number.isFinite(Number(r)));
+ if(!effortComplete)return 'Track RIR on every completed set for an effort-aware recommendation; maintain current load meanwhile.';
+ const rirs=tracked.map(Number),avg=rirs.reduce((a,b)=>a+b,0)/rirs.length;
+ if(top&&vals.length>=Number(ex.sets)&&vals.every(n=>n>=top)&&avg>=1&&avg<=3)
+  return 'Increase candidate: top rep range achieved at 1–3 RIR. Try the next available dumbbell increment only if form and recovery are good; confirm the load yourself.';
+ if(avg>=4&&top&&vals.every(n=>n>=bottom))return 'Likely underloaded: add clean reps or consider more resistance if available.';
+ if(avg<=0.5)return 'Very hard session: maintain the weight, recover well and aim for 1–3 RIR next time.';
+ return 'Maintain the working weight. Add clean reps while keeping roughly 1–3 RIR.';
 }
-
 function cleanRepValues(log){
  return Array.isArray(log?.sets)
    ? log.sets.map(v=>Number(String(v||"").replace(/[^0-9.]/g,""))).filter(v=>Number.isFinite(v)&&v>0)
@@ -321,7 +349,7 @@ function previousPerformanceText(ex,previous){
    ? previous.log.sets.filter(v=>String(v||"").trim()!=="")
    : [];
  const load=String(previous.log.load||ex.load||"").trim()||ex.load;
- return `Week ${previous.week}: ${load} • ${sets.length?sets.join(" / "):"sets not recorded"}`;
+ return `Block ${previous.block} · Week ${previous.week}: ${load} • ${sets.length?sets.join(" / "):"sets not recorded"}`;
 }
 
 function buildProgressTarget(ex,previous){
@@ -365,15 +393,25 @@ function renderRestTimer(){const p=document.getElementById("restTimerPanel"),d=d
 function startRestTimer(seconds){clearInterval(restTimerInterval);restTimerSeconds=Number(seconds||0);if(restTimerSeconds<=0)return;renderRestTimer();restTimerInterval=setInterval(()=>{restTimerSeconds--;renderRestTimer();if(restTimerSeconds<=0){clearInterval(restTimerInterval);restTimerInterval=null;if(navigator.vibrate)navigator.vibrate([150,80,150])}},1000)}
 function stopRestTimer(){clearInterval(restTimerInterval);restTimerInterval=null;restTimerSeconds=0;renderRestTimer()}
 function numericLoad(t){const n=String(t||"").match(/\d+(\.\d+)?/);if(!n)return 0;const v=Number(n[0]),s=String(t||"").toLowerCase();return (s.includes("each")||s.includes("2 x")||s.includes("2×"))?v*2:v}
-function exerciseHistory(day,name){const r=[];for(let w=1;w<=16;w++){const l=state.logs[keyForWeek(w,day,name)];if(!l)continue;const reps=cleanRepValues(l);if(!reps.length)continue;const load=numericLoad(l.load);r.push({week:w,load,reps,volume:load*reps.reduce((a,b)=>a+b,0)})}return r}
+function exerciseHistory(day,name){
+ const r=[];
+ for(const block of allBlockSnapshots())for(let week=1;week<=16;week++){
+  const l=block.logs?.[keyForWeek(week,day,name)];if(!hasCompletedSets(l))continue;
+  const reps=cleanRepValues(l),load=numericLoad(l.load);
+  r.push({block:block.number,week,day,load,reps,volume:load*reps.reduce((a,b)=>a+b,0),setRirs:l.setRirs||[],log:l});
+ }
+ return r;
+}
 function trendText(day,name){
- const h=exerciseHistory(day,name).filter(r=>r.week<=Number(state.currentWeek));
- const now=h.find(r=>r.week===Number(state.currentWeek));
- const earlier=h.filter(r=>r.week<Number(state.currentWeek));
- if(!now)return earlier.length?`Previous logged session: Week ${earlier[earlier.length-1].week}. Enter completed reps for a new comparison.`:'Record completed sets to establish a baseline.';
- if(!earlier.length)return 'First recorded session. Complete another week for a trend.';
- const a=earlier[earlier.length-1],d=now.volume-a.volume;
- return d>0?`Volume up ${Math.round(d).toLocaleString()} lb vs Week ${a.week}.`:d<0?`Volume down ${Math.abs(Math.round(d)).toLocaleString()} lb vs Week ${a.week}.`:`Volume matched Week ${a.week}.`;
+ const h=exerciseHistory(day,name).filter(r=>r.block<state.blockNumber || r.week<=Number(state.currentWeek));
+ if(!h.length)return 'Record completed sets to establish a baseline.';
+ const latest=h.at(-1),current=state.logs[keyForWeek(state.currentWeek,day,name)];
+ if(!hasCompletedSets(current))return `Last completed: Block ${latest.block}, Week ${latest.week} · ${latest.reps.join('/')} reps at ${latest.log.load}.`;
+ const previous=h.filter(r=>!(r.block===state.blockNumber&&r.week===Number(state.currentWeek))).at(-1);
+ if(!previous)return 'First recorded session. Complete another workout for a trend.';
+ const currentVol=numericLoad(current.load)*cleanRepValues(current).reduce((a,b)=>a+b,0);
+ const difference=Math.round(currentVol-previous.volume);
+ return `${difference>0?'+':''}${difference.toLocaleString()} lb total volume vs Block ${previous.block} Week ${previous.week} (${previous.log.load}). Compare reps and RIR at similar weights.`;
 }
 function evaluateExercisePR(day,ex,log){
  const reps=cleanRepValues(log);if(!reps.length)return null;const load=numericLoad(log.load),bestReps=Math.max(...reps),volume=load*reps.reduce((a,b)=>a+b,0),k=`${day}|${ex.name}`,p=state.prs[k]||{bestLoad:0,bestReps:0,bestVolume:0},types=[];
@@ -400,12 +438,14 @@ function showWorkoutSummary(s){
 // Logs are keyed by planned program week and day; no calendar dates are inferred for old records.
 function weekDayStatus(week,day){
  const finished=!!state.finished[`${week}|${day}`];
+ const skipped=!!state.skippedDays?.[`${week}|${day}`];
  const program=PROGRAM[day];
  const logs=program.exercises.map((ex,i)=>state.logs[keyForWeek(week,day,ex.name)]);
  const logged=logs.filter(hasCompletedSets).length;
  const isRecovery=["Wednesday","Friday","Sunday"].includes(day);
  if(finished)return {kind:"finished",label:"Completed",detail:`${logged} exercises logged`};
  if(logged)return {kind:"partial",label:"Logged",detail:`${logged} of ${program.exercises.length} exercises`};
+ if(skipped)return {kind:"skipped",label:"Skipped",detail:"Intentionally skipped; not counted as training"};
  if(isRecovery)return {kind:"recovery",label:day==="Friday"?"Rest":"Recovery",detail:"Optional activity not logged"};
  return {kind:"empty",label:"Not logged",detail:"No exercise sets recorded"};
 }
@@ -415,7 +455,7 @@ function renderWeeklyTracker(){
   const host=document.getElementById(id);if(!host)continue;
   host.innerHTML="";
   const heading=document.createElement("div");heading.className="week-track-heading";
-  heading.innerHTML=`<div><div class="eyebrow">WEEKLY ACTIVITY</div><h3>Week ${week} of 16 <span class="week-track-current">${isCurrent?"Current training week":"Viewing history"}</span></h3></div>`;
+  heading.innerHTML=`<div><div class="eyebrow">BLOCK ${state.blockNumber} · WEEKLY ACTIVITY</div><h3>Week ${week} of 16 <span class="week-track-current">${isCurrent?"Current training week":"Viewing history"}</span></h3></div>`;
   host.appendChild(heading);
   const weekNav=document.createElement("div");weekNav.className="week-track-nav";
   const previous=document.createElement("button");previous.type="button";previous.textContent="‹ Previous";previous.disabled=week<=1;
@@ -431,7 +471,7 @@ function renderWeeklyTracker(){
    const b=document.createElement("button");b.type="button";b.className=`week-day week-day-${status.kind}`+(activeWorkoutDay()===day?" week-day-selected":"");
    b.title=`${day}: ${status.label} — ${status.detail}`;
    b.setAttribute("aria-label",`${day}: ${status.label}, ${status.detail}`);
-   b.innerHTML=`<span class="week-day-label">${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][index]}</span><span class="week-day-icon">${status.kind==="finished"?"✓":status.kind==="partial"?"●":status.kind==="recovery"?"–":"○"}</span><span class="week-day-caption">${status.kind==="finished"?"Done":status.kind==="partial"?"Logged":status.kind==="recovery"?"Rest":"Empty"}</span>`;
+   b.innerHTML=`<span class="week-day-label">${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][index]}</span><span class="week-day-icon">${status.kind==="finished"?"✓":status.kind==="partial"?"●":status.kind==="recovery"?"–":status.kind==="skipped"?"×":"○"}</span><span class="week-day-caption">${status.kind==="finished"?"Done":status.kind==="partial"?"Logged":status.kind==="recovery"?"Rest":status.kind==="skipped"?"Skip":"Empty"}</span>`;
    b.onclick=()=>{sessionWorkoutDay=day;document.getElementById("todayWorkoutSelect").value=day;renderToday();renderProgress();showScreen("todayScreen","Today");};
    grid.appendChild(b);
   });
@@ -443,7 +483,7 @@ function renderToday(){
  const scheduled=dayName(),day=activeWorkoutDay(),workout=PROGRAM[day],guide=WEEK_PLAN[String(state.currentWeek)];
  document.getElementById("todayDate").textContent=dateLabel();
  document.getElementById("todayWorkout").textContent=`${day} — ${workout.title}`;
- document.getElementById("currentWeekLabel").textContent=state.currentWeek;
+ document.getElementById("currentWeekLabel").textContent=`${state.currentWeek} · Block ${state.blockNumber}`;
  document.getElementById("weekGuidance").textContent=`${guide[0]}: ${guide[1]} • ${guide[2]} • ${guide[3]} • ${guide[4]}`;
  const note=document.getElementById("scheduleNote");
  if(note){
@@ -587,7 +627,7 @@ function renderProgram(){
  list.innerHTML="";
  PROGRAM[day].exercises.forEach((ex,i)=>list.appendChild(makeExercise(day,ex,i,true)));
 }
-function finishWorkout(){const day=activeWorkoutDay();state.finished[`${state.currentWeek}|${day}`]=true;const s=buildWorkoutSummary(day);saveState();stopRestTimer();renderProgress();renderToday();renderProgram();showWorkoutSummary(s);}
+function finishWorkout(){const day=activeWorkoutDay();delete state.skippedDays[`${state.currentWeek}|${day}`];state.finished[`${state.currentWeek}|${day}`]=true;const s=buildWorkoutSummary(day);saveState();stopRestTimer();renderProgress();renderToday();renderProgram();showWorkoutSummary(s);}
 function saveCheckin(){
  const w=state.currentWeek;state.checkins[w]={weight:val("bodyWeight"),waist:val("waist"),sleep:val("sleep"),energy:val("energy"),soreness:val("soreness"),notes:val("weeklyNotes"),date:new Date().toISOString()};saveState();renderProgress();alert("Weekly check-in saved.");
 }
@@ -600,13 +640,13 @@ function renderStrengthDashboard(){
    const histories=[];
    for(const day of DAYS){if(!PROGRAM[day].exercises.some(e=>e.name===name))continue;
      for(const h of exerciseHistory(day,name))histories.push({...h,day});}
-   histories.sort((a,b)=>a.week-b.week||DAYS.indexOf(a.day)-DAYS.indexOf(b.day));
+   histories.sort((a,b)=>a.block-b.block||a.week-b.week||DAYS.indexOf(a.day)-DAYS.indexOf(b.day));
    const box=document.createElement('div');box.className='strength-card';
    const heading=document.createElement('strong');heading.textContent=name;box.appendChild(heading);
    if(!histories.length){const note=document.createElement('p');note.textContent='No completed workout history yet.';box.appendChild(note);}
    else {
      const latest=histories[histories.length-1],first=histories[0];
-     const summary=document.createElement('p');summary.textContent=`Latest: Week ${latest.week} ${latest.day} · ${latest.reps.join('/')} reps · ${Math.round(latest.volume).toLocaleString()} lb volume`;
+     const summary=document.createElement('p');summary.textContent=`Latest: Block ${latest.block} Week ${latest.week} ${latest.day} · ${latest.reps.join('/')} reps · ${Math.round(latest.volume).toLocaleString()} lb volume`;
      box.appendChild(summary);
      const detail=document.createElement('p');detail.textContent=`First recorded volume: ${Math.round(first.volume).toLocaleString()} lb · Change: ${Math.round(latest.volume-first.volume)>=0?'+':''}${Math.round(latest.volume-first.volume).toLocaleString()} lb`;
      box.appendChild(detail);
@@ -617,17 +657,31 @@ function renderStrengthDashboard(){
 function renderProgress(){
  renderWeeklyTracker();
  renderStrengthDashboard();
- const finished=Object.keys(state.finished).filter(k=>state.finished[k]).length,planned=state.currentWeek*4;
+ const finished=allBlockSnapshots().reduce((n,b)=>n+Object.keys(b.finished||{}).filter(k=>b.finished[k]).length,0),planned=((state.blockNumber-1)*16+state.currentWeek)*4;
  document.getElementById("statWorkouts").textContent=finished;
  document.getElementById("statAdherence").textContent=`${Math.min(100,Math.round(finished/Math.max(1,planned)*100))}%`;
- const checks=Object.entries(state.checkins).sort((a,b)=>Number(a[0])-Number(b[0]));const latest=checks.at(-1)?.[1]||{};
+ const checks=allBlockSnapshots().flatMap(b=>Object.entries(b.checkins||{}).map(([w,c])=>[`${b.number}-${String(w).padStart(2,"0")}`,c])).sort((a,b)=>a[0].localeCompare(b[0]));const latest=checks.at(-1)?.[1]||{};
  document.getElementById("statWeight").textContent=latest.weight?latest.weight+" lb":"—";document.getElementById("statWaist").textContent=latest.waist?latest.waist+' in':"—";
  const cur=state.checkins[state.currentWeek]||{};for(const id of ["bodyWeight","waist","sleep","energy","soreness","weeklyNotes"])document.getElementById(id).value=cur[{bodyWeight:"weight",waist:"waist",sleep:"sleep",energy:"energy",soreness:"soreness",weeklyNotes:"notes"}[id]]||"";
- const h=document.getElementById("historyList");h.innerHTML="";for(let w=1;w<=16;w++){const c=state.checkins[w]||{},done=Object.keys(state.finished).filter(k=>k.startsWith(w+"|")&&state.finished[k]).length;const d=document.createElement("div");d.className="history-item";d.innerHTML=`<strong>W${w}</strong><div>${c.weight?c.weight+" lb":"No check-in"}<div class="muted">${c.notes||""}</div></div><span class="badge">${done} workouts</span>`;h.appendChild(d)}drawChart(checks);
+ const h=document.getElementById("historyList");h.innerHTML="";
+ for(const block of allBlockSnapshots()){
+  const head=document.createElement("h3");head.textContent=`Block ${block.number}${block.archived?' · Archived':' · Current'}`;h.appendChild(head);
+  for(let w=1;w<=16;w++){
+   const c=block.checkins?.[w]||{},done=Object.keys(block.finished||{}).filter(k=>k.startsWith(w+"|")&&block.finished[k]).length;
+   const logged=Object.entries(block.logs||{}).some(([k,v])=>k.startsWith(w+"|")&&hasCompletedSets(v));
+   if(!done&&!logged&&!c.date)continue;
+   const d=document.createElement("div");d.className="history-item";
+   const label=document.createElement("strong");label.textContent=`Week ${w}`;
+   const detail=document.createElement("div");detail.textContent=c.weight?`${c.weight} lb`:'No weight check-in';
+   const notes=document.createElement("div");notes.className="muted";notes.textContent=c.notes||'';detail.appendChild(notes);
+   const badge=document.createElement("span");badge.className="badge";badge.textContent=`${done} finished`;
+   d.append(label,detail,badge);h.appendChild(d);
+  }
+ }drawChart(checks);
 }
 function drawChart(checks){const c=document.getElementById("weightChart"),ctx=c.getContext("2d"),ratio=devicePixelRatio||1,w=c.clientWidth||320,h=190;c.width=w*ratio;c.height=h*ratio;ctx.scale(ratio,ratio);ctx.clearRect(0,0,w,h);const pts=checks.filter(x=>Number(x[1].weight));if(pts.length<1){ctx.fillStyle=getComputedStyle(document.body).getPropertyValue("--muted");ctx.font="14px -apple-system";ctx.fillText("Add weekly weights to see your trend.",14,28);return}const vals=pts.map(x=>Number(x[1].weight)),min=Math.min(...vals)-2,max=Math.max(...vals)+2,pad=28;ctx.strokeStyle="#d9e2ec";ctx.beginPath();ctx.moveTo(pad,10);ctx.lineTo(pad,h-pad);ctx.lineTo(w-8,h-pad);ctx.stroke();ctx.strokeStyle="#1f6feb";ctx.lineWidth=3;ctx.beginPath();pts.forEach((p,i)=>{const x=pad+(w-pad-12)*(i/Math.max(1,pts.length-1)),y=10+(h-pad-14)*(1-(Number(p[1].weight)-min)/(max-min||1));i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();}
 function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`mac-workout-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)}
-function importData(file){const r=new FileReader();r.onload=()=>{try{state=Object.assign(blankState(),JSON.parse(r.result));saveState();location.reload()}catch(e){alert("That backup file could not be read.")}};r.readAsText(file)}
+function importData(file){const r=new FileReader();r.onload=()=>{try{const backup=JSON.parse(r.result);if(!backup||typeof backup!=="object"||!backup.logs||typeof backup.logs!=="object")throw Error("Invalid backup");if(!confirm("Importing replaces this device’s current training data and may sync it to the cloud. Export a backup first. Continue?"))return;state=Object.assign(blankState(),backup);saveState();location.reload()}catch(e){alert("That backup file could not be read.")}};r.readAsText(file)}
 function showScreen(id,title){document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("active",s.id===id));document.querySelectorAll(".bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.screen===id));document.getElementById("screenTitle").textContent=title;if(id==="progressScreen")renderProgress();if(id==="programScreen")renderProgram();window.scrollTo(0,0)}
 function init(){
  autoAdvanceTrainingWeek();
@@ -654,6 +708,8 @@ function init(){
  document.querySelectorAll(".bottom-nav button").forEach(b=>b.onclick=()=>showScreen(b.dataset.screen,b.textContent.trim().replace(/[●▦↗⚙]/g,"")));
  document.getElementById("themeBtn").onclick=()=>{state.dark=!state.dark;saveState();document.body.classList.toggle("dark",state.dark);renderProgress()};
  document.getElementById("finishWorkoutBtn").onclick=finishWorkout;
+ document.getElementById("skipDayBtn").onclick=markDaySkipped;
+ document.getElementById("newBlockBtn").onclick=startNewTrainingBlock;
  document.getElementById("restTimerAddBtn").onclick=()=>{restTimerSeconds+=30;renderRestTimer();};
  document.getElementById("restTimerStopBtn").onclick=stopRestTimer;
  document.getElementById("closeSummaryBtn").onclick=()=>document.getElementById("workoutSummaryModal").classList.add("hidden");document.getElementById("saveCheckinBtn").onclick=saveCheckin;document.getElementById("exportBtn").onclick=exportData;

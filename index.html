@@ -55,7 +55,7 @@
     <label>Workout to do today<select id="todayWorkoutSelect"></select></label>
   </div>
   <div id="scheduleNote" class="schedule-note"></div>
-  <div class="card weekly-card" id="weeklyTracker" aria-label="Weekly workout tracker"></div>
+  <div class="card" style="padding:12px"><button id="skipDayBtn" class="secondary wide" type="button">Mark selected workout skipped / undo</button><p class="muted">A skipped session does not advance the training week. To make it up, select that day and log it normally.</p></div><div class="card weekly-card" id="weeklyTracker" aria-label="Weekly workout tracker"></div>
 <div class="card coach-card">
   <div class="coach-title-row"><div><div class="eyebrow">SMART COACH</div><h3>Pre-workout briefing</h3></div><span id="coachReadinessBadge" class="badge">Ready</span></div>
   <div id="coachBriefing" class="coach-briefing">Loading your training history…</div>
@@ -98,10 +98,10 @@
   <div class="card">
     <h3>Backup your data</h3>
     <p class="muted">Workout entries stay on this device unless you export a backup.</p>
-    <button id="exportBtn" class="secondary wide">Export backup</button>
+    <p class="muted">Backups include all archived training blocks, set-level RIR, records and completed workouts.</p><button id="exportBtn" class="secondary wide">Export backup</button>
     <label class="file-btn secondary wide">Import backup<input id="importInput" type="file" accept="application/json" hidden></label>
   </div>
-  <div class="card"><h3>Program settings</h3><label>Original program start (reference only)<input type="date" id="weekOneMonday"></label><p class="muted">Training weeks now advance on Monday only when the previous training week has at least one logged working set or finished strength workout. Empty calendar weeks are skipped. The original start date does not force week numbers forward.</p><label>Actual training week<select id="settingsWeekSelect"></select></label><p class="muted">Set your actual current training week here once after upgrading. Older entries have no reliable exercise dates, so the app cannot know which calendar weeks were skipped before this update. Future empty weeks will not advance your program. Today’s week selector only browses history.</p></div>
+  <div class="card"><h3>Training blocks</h3><p class="muted">Finish a 16-week block and begin Week 1 again without losing a single workout. Strength coaching will still reference all previous blocks.</p><button id="newBlockBtn" class="secondary wide" type="button">Start next 16-week block</button><p class="muted">Export a backup before starting. Previous blocks are preserved inside the app and backup file.</p></div><div class="card"><h3>Program settings</h3><label>Original program start (reference only)<input type="date" id="weekOneMonday"></label><p class="muted">Training weeks now advance on Monday only when the previous training week has at least one logged working set or finished strength workout. Empty calendar weeks are skipped. The original start date does not force week numbers forward.</p><label>Actual training week<select id="settingsWeekSelect"></select></label><p class="muted">Set your actual current training week here once after upgrading. Older entries have no reliable exercise dates, so the app cannot know which calendar weeks were skipped before this update. Future empty weeks will not advance your program. Today’s week selector only browses history.</p></div>
 
   <div class="card">
     <h3>Cloud sync</h3>

@@ -117,3 +117,5 @@ body.dark .summary-pr{background:#4a3d0e;color:#ffe999}
 body.dark .week-day-finished{background:#183b31;color:#a8ecc8;border-color:#366e58}
 body.dark .week-day-partial{background:#493a1a;color:#ffdc91;border-color:#826529}
 @media(max-width:390px){.week-track-days{gap:3px}.week-day{min-height:69px}.week-day-label{font-size:9px}.week-day-caption{font-size:8px}.weekly-card{padding:12px 9px}}
+
+.week-day-skipped{background:#fff0ed;border-color:#e6a4a4;color:#a23b35;}
