@@ -18,3 +18,9 @@ Back up your current workout data with Settings > Export backup before deploying
 - The recommendation only unlocks when all prescribed sets have reps at/above top of the range, with a recorded RIR of 1–2 on each set. Use judgment for bodyweight and timed exercises.
 - Existing previously recorded RIR was exercise-level and cannot accurately be converted to per-set RIR.
 - This package contains code changes, not your personal cloud workout records; no cloud data was accessed or changed.
+
+## Progression 2.1 mobile layout polish
+- On phones, working sets display in full-width rows with readable repetitions and RIR inputs, replacing the cramped two-column set cards.
+- Repetition placeholders say “Reps” and fields have accessible names.
+- Tighter mobile header spacing and clear last-workout/target labels.
+- Service-worker cache bumped again to refresh the deployed mobile layout.

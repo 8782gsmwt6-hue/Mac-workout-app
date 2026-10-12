@@ -462,7 +462,8 @@ function makeExercise(day,ex,i,editable){
    const inp=document.createElement("input");
    inp.type="text";
    inp.inputMode="numeric";
-   inp.placeholder=ex.reps;
+   inp.placeholder="Reps";
+   inp.setAttribute("aria-label",`Set ${s+1} completed repetitions`);
    inp.value=saved.sets[s]||"";
    inp.disabled=!editable;
    inp.oninput=()=>{
@@ -478,7 +479,7 @@ function makeExercise(day,ex,i,editable){
    const effort=document.createElement('label');effort.className='set-effort';effort.textContent='RIR';
    const selector=document.createElement('select');
    selector.innerHTML='<option value="">—</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4+</option>';
-   selector.value=saved.setRirs[s]||'';selector.disabled=!editable;
+   selector.value=saved.setRirs[s]||'';selector.setAttribute('aria-label',`Set ${s+1} repetitions in reserve`);selector.disabled=!editable;
    selector.onchange=()=>{saved.setRirs[s]=selector.value;saved.exerciseName=ex.name;state.logs[logKey]=saved;saveState();};
    effort.appendChild(selector);row.appendChild(effort);
    sets.appendChild(row);
