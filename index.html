@@ -101,7 +101,7 @@
     <button id="exportBtn" class="secondary wide">Export backup</button>
     <label class="file-btn secondary wide">Import backup<input id="importInput" type="file" accept="application/json" hidden></label>
   </div>
-  <div class="card"><h3>Program settings</h3><label>Actual training week<select id="settingsWeekSelect"></select></label><p class="muted">This is the week you are currently training. Use Today’s week selector to review older or future weeks without changing it.</p></div>
+  <div class="card"><h3>Program settings</h3><label>Monday of Week 1<input type="date" id="weekOneMonday"></label><p class="muted">Set this once using the Monday when your program began. Each new Monday, your training week advances automatically. Leave blank to keep manual week control. Historical logs are never moved.</p><label>Actual training week<select id="settingsWeekSelect"></select></label><p class="muted">You can still advance manually. Today’s week selector lets you review history without changing the active week.</p></div>
 
   <div class="card">
     <h3>Cloud sync</h3>

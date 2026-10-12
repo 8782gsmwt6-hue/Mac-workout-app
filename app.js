@@ -196,7 +196,31 @@ function startRealtimeSync(user){
   );
 }
 
+// Week 1 Monday is set by the user; old records have no trustworthy calendar dates.
+// Advance only on calendar-week boundaries and never rewrite recorded weeks.
+function calendarProgramWeek(){
+ const anchor=state.weekOneMonday;
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(anchor||""))return null;
+ const [y,m,d]=anchor.split("-").map(Number);
+ const origin=Date.UTC(y,m-1,d);
+ if(new Date(origin).getUTCDay()!==1 || new Date(origin).toISOString().slice(0,10)!==anchor)return null;
+ const today=new Date();
+ const todayUTC=Date.UTC(today.getFullYear(),today.getMonth(),today.getDate());
+ const n=Math.floor((todayUTC-origin)/(7*86400000))+1;
+ return Math.min(16,Math.max(1,n));
+}
+function autoAdvanceTrainingWeek(){
+ const derived=calendarProgramWeek();
+ if(derived===null || derived<=Number(state.activeTrainingWeek||1))return;
+ const wasCurrentView=Number(state.currentWeek)===Number(state.activeTrainingWeek);
+ state.activeTrainingWeek=derived;
+ if(wasCurrentView)state.currentWeek=derived;
+ saveState();
+}
 function applyStateToUi(){
+  autoAdvanceTrainingWeek();
+  const anchorField=document.getElementById("weekOneMonday");
+  if(anchorField)anchorField.value=state.weekOneMonday||"";
   document.body.classList.toggle("dark",state.dark);
   const week=document.getElementById("weekSelect");
   const settingsWeek=document.getElementById("settingsWeekSelect");
@@ -211,7 +235,7 @@ function applyStateToUi(){
   renderProgress();
 }
 
-const PROGRAM = {"Monday":{"title":"Lower + Core","exercises":[{"name":"Goblet Squat","load":"40 lb","sets":3,"reps":"10\u201312","rest":"90 sec"},{"name":"DB Romanian Deadlift","load":"40 lb each","sets":3,"reps":"8\u201312","rest":"2 min"},{"name":"Stationary Reverse Lunge","load":"15 lb each","sets":3,"reps":"8/side","rest":"90 sec"},{"name":"Standing DB Calf Raise","load":"40 lb each","sets":3,"reps":"12\u201315","rest":"60 sec"},{"name":"Plank","load":"Bodyweight","sets":3,"reps":"30\u201345 sec","rest":"60 sec"},{"name":"Bike / compact conditioning","load":"Moderate-hard","sets":1,"reps":"5\u20138 min","rest":"\u2014"}]},"Tuesday":{"title":"Pull + Calisthenics","exercises":[{"name":"Chest-Supported DB Row","load":"40 lb each","sets":4,"reps":"8\u201312","rest":"2 min"},{"name":"Pull-Up","load":"Bodyweight","sets":4,"reps":"Clean reps","rest":"2 min"},{"name":"Pulley Straight-Arm Pulldown","load":"20 lb","sets":3,"reps":"10\u201315","rest":"75 sec"},{"name":"DB Curl","load":"20 lb each","sets":3,"reps":"8\u201312","rest":"75 sec"},{"name":"Dead Hang","load":"Bodyweight","sets":3,"reps":"30 sec","rest":"60 sec"},{"name":"Push-Up","load":"Bodyweight","sets":3,"reps":"8\u201312","rest":"75 sec"}]},"Wednesday":{"title":"Recovery","exercises":[{"name":"Easy walk or bike","load":"Easy pace","sets":1,"reps":"20\u201330 min","rest":"\u2014"},{"name":"Chest / shoulder mobility","load":"Bodyweight","sets":1,"reps":"5\u20138 min","rest":"\u2014"}]},"Thursday":{"title":"Chest + Shoulders","exercises":[{"name":"Incline DB Bench Press","load":"40 lb each","sets":3,"reps":"8\u201312","rest":"2 min"},{"name":"Single-Arm High-to-Low Pulley Fly","load":"15 lb","sets":3,"reps":"10\u201315/side","rest":"60\u201375 sec"},{"name":"Seated DB Shoulder Press","load":"20 lb each","sets":3,"reps":"8\u201312","rest":"90 sec"},{"name":"DB Lateral Raise","load":"15 lb each","sets":3,"reps":"10\u201315","rest":"60 sec"},{"name":"Overhead DB Triceps Extension","load":"30 lb","sets":3,"reps":"10\u201312","rest":"75 sec"},{"name":"Push-Up","load":"Bodyweight","sets":3,"reps":"Stop 2 reps before failure","rest":"90 sec"}]},"Friday":{"title":"Rest","exercises":[{"name":"Rest day","load":"\u2014","sets":1,"reps":"Recover for Saturday","rest":"\u2014"},{"name":"Optional easy walk","load":"Easy pace","sets":1,"reps":"15\u201330 min","rest":"\u2014"}]},"Saturday":{"title":"Heavy Chest + Upper","exercises":[{"name":"Incline DB Bench Press","load":"40 lb each","sets":4,"reps":"8\u201312","rest":"2\u20133 min"},{"name":"Flat DB Bench Press","load":"50 lb each","sets":4,"reps":"6\u201310","rest":"2\u20133 min"},{"name":"Chest-Supported DB Row","load":"40 lb each","sets":3,"reps":"8\u201312","rest":"2 min"},{"name":"Single-Arm High-to-Low Pulley Fly","load":"15 lb","sets":3,"reps":"10\u201315/side","rest":"60\u201375 sec"},{"name":"Pull-Up","load":"Bodyweight","sets":3,"reps":"Clean reps","rest":"2 min"},{"name":"Push-Up Finisher","load":"Bodyweight","sets":2,"reps":"Near technical failure","rest":"90 sec"}]},"Sunday":{"title":"Recovery","exercises":[{"name":"Easy walk or bike","load":"Easy pace","sets":1,"reps":"20\u201330 min","rest":"\u2014"},{"name":"Mobility: hips, chest, shoulders","load":"Bodyweight","sets":1,"reps":"8\u201310 min","rest":"\u2014"}]}};
+const PROGRAM = {"Monday":{"title":"Lower + Core","exercises":[{"name":"Goblet Squat","load":"40 lb","sets":3,"reps":"10\u201312","rest":"90 sec"},{"name":"DB Romanian Deadlift","load":"40 lb each","sets":3,"reps":"8\u201312","rest":"2 min"},{"name":"Stationary Reverse Lunge","load":"15 lb each","sets":3,"reps":"8/side","rest":"90 sec"},{"name":"Standing DB Calf Raise","load":"40 lb each","sets":3,"reps":"12\u201315","rest":"60 sec"},{"name":"Plank","load":"Bodyweight","sets":3,"reps":"30\u201345 sec","rest":"60 sec"},{"name":"Bike / compact conditioning","load":"Moderate-hard","sets":1,"reps":"5\u20138 min","rest":"\u2014"}]},"Tuesday":{"title":"Pull + Chest Accessory","exercises":[{"name":"Chest-Supported DB Row","load":"40 lb each","sets":4,"reps":"8\u201312","rest":"2 min"},{"name":"Pull-Up","load":"Bodyweight","sets":4,"reps":"Clean reps","rest":"2 min"},{"name":"Pulley Straight-Arm Pulldown","load":"20 lb","sets":3,"reps":"10\u201315","rest":"75 sec"},{"name":"DB Curl","load":"20 lb each","sets":3,"reps":"8\u201312","rest":"75 sec"},{"name":"Dead Hang","load":"Bodyweight","sets":3,"reps":"30 sec","rest":"60 sec"},{"name":"Flat DB Bench Press","load":"50 lb each","sets":2,"reps":"8\u201312","rest":"2\u20133 min"},{"name":"Push-Up","load":"Bodyweight","sets":2,"reps":"8\u201312","rest":"75 sec"}]},"Wednesday":{"title":"Recovery","exercises":[{"name":"Easy walk or bike","load":"Easy pace","sets":1,"reps":"20\u201330 min","rest":"\u2014"},{"name":"Chest / shoulder mobility","load":"Bodyweight","sets":1,"reps":"5\u20138 min","rest":"\u2014"}]},"Thursday":{"title":"Chest + Shoulders","exercises":[{"name":"Incline DB Bench Press","load":"40 lb each","sets":3,"reps":"8\u201312","rest":"2 min"},{"name":"Single-Arm High-to-Low Pulley Fly","load":"15 lb","sets":3,"reps":"10\u201315/side","rest":"60\u201375 sec"},{"name":"Seated DB Shoulder Press","load":"20 lb each","sets":3,"reps":"8\u201312","rest":"90 sec"},{"name":"DB Lateral Raise","load":"15 lb each","sets":3,"reps":"10\u201315","rest":"60 sec"},{"name":"Overhead DB Triceps Extension","load":"30 lb","sets":3,"reps":"10\u201312","rest":"75 sec"},{"name":"Push-Up","load":"Bodyweight","sets":3,"reps":"Stop 2 reps before failure","rest":"90 sec"}]},"Friday":{"title":"Rest","exercises":[{"name":"Rest day","load":"\u2014","sets":1,"reps":"Recover for Saturday","rest":"\u2014"},{"name":"Optional easy walk","load":"Easy pace","sets":1,"reps":"15\u201330 min","rest":"\u2014"}]},"Saturday":{"title":"Heavy Chest + Upper","exercises":[{"name":"Incline DB Bench Press","load":"40 lb each","sets":4,"reps":"8\u201312","rest":"2\u20133 min"},{"name":"Flat DB Bench Press","load":"50 lb each","sets":4,"reps":"6\u201310","rest":"2\u20133 min"},{"name":"Chest-Supported DB Row","load":"40 lb each","sets":3,"reps":"8\u201312","rest":"2 min"},{"name":"Single-Arm High-to-Low Pulley Fly","load":"15 lb","sets":3,"reps":"10\u201315/side","rest":"60\u201375 sec"},{"name":"Pull-Up","load":"Bodyweight","sets":3,"reps":"Clean reps","rest":"2 min"},{"name":"Push-Up Finisher","load":"Bodyweight","sets":2,"reps":"Near technical failure","rest":"90 sec"}]},"Sunday":{"title":"Recovery","exercises":[{"name":"Easy walk or bike","load":"Easy pace","sets":1,"reps":"20\u201330 min","rest":"\u2014"},{"name":"Mobility: hips, chest, shoulders","load":"Bodyweight","sets":1,"reps":"8\u201310 min","rest":"\u2014"}]}};
 const WEEK_PLAN = {"1":["Re-entry","Use listed loads","Low-middle rep range","2\u20133 RIR","Controlled"],"2":["Build","Same loads","+1 rep per set where possible","2 RIR","Controlled"],"3":["Build","Same loads","+1 rep again","1\u20132 RIR","Controlled"],"4":["Deload","Same or lighter","2 sets per lift","4 RIR","Easy"],"5":["Progress","Next available load only if earned","Low end of range","2\u20133 RIR","Controlled"],"6":["Build","Same load","+1 rep per set","2 RIR","Controlled"],"7":["Build","Same load","Toward top of range","1\u20132 RIR","Controlled"],"8":["Deload","Reduce sets ~40%","Low end","4 RIR","Easy"],"9":["Strength-hypertrophy","Heaviest controlled available","Lower half","2 RIR","Controlled"],"10":["Build","Same load","+1 rep per set","1\u20132 RIR","Controlled"],"11":["Build","Same load","Top of range","1 RIR","Controlled"],"12":["Deload","One step lighter where practical","2 easy sets","4 RIR","Easy"],"13":["Peak build","Heaviest controlled available","Low-middle range","2 RIR","1-sec pause"],"14":["Build","Same load","+1 rep per set","1\u20132 RIR","Pause reps"],"15":["Performance","Same load","Beat Week 14 total reps","0\u20131 RIR final set only","Controlled"],"16":["Reset","Base or lighter","2 easy sets","4\u20135 RIR","Easy"]};
 const DAYS = Object.keys(PROGRAM);
 const STORAGE_KEY = "macWorkoutDataV1";
@@ -219,7 +243,7 @@ const STORAGE_KEY = "macWorkoutDataV1";
 let state = loadState();
 let sessionWorkoutDay = dayName();
 if(!Number.isFinite(Number(state.activeTrainingWeek)) || !state.activeTrainingWeek) state.activeTrainingWeek=Number(state.currentWeek)||1;
-function blankState(){return {currentWeek:1,activeTrainingWeek:null,dark:false,logs:{},checkins:{},finished:{},selectedWorkoutDay:"",metaUpdatedAt:0,resetEpoch:0,prs:{},summaries:{}}}
+function blankState(){return {currentWeek:1,activeTrainingWeek:null,weekOneMonday:"",dark:false,logs:{},checkins:{},finished:{},selectedWorkoutDay:"",metaUpdatedAt:0,resetEpoch:0,prs:{},summaries:{}}}
 function loadState(){try{return Object.assign(blankState(),JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"));}catch(e){return blankState();}}
 function saveState(){
   state.metaUpdatedAt=Date.now();
@@ -354,7 +378,7 @@ function evaluateExercisePR(day,ex,log){
 }
 function buildCoachBriefing(){
  const day=activeWorkoutDay(),w=PROGRAM[day],box=document.getElementById("coachBriefing");if(!box)return;
- const p=day==="Saturday"?"Primary goal: chest strength and hypertrophy. Protect your pressing performance and use the full rest periods.":day==="Thursday"?"Secondary chest exposure: quality reps today so Saturday stays strong.":day==="Tuesday"?"Pulling strength day: prioritize clean pull-ups and strong rows.":day==="Monday"?"Lower-body strength and core. Keep technique clean and leave reps in reserve.":"Recovery day: finish fresher than you started.";
+ const p=day==="Saturday"?"Primary goal: chest strength and hypertrophy. Protect your pressing performance and use the full rest periods.":day==="Thursday"?"Secondary chest exposure: quality reps today so Saturday stays strong.":day==="Tuesday"?"Pull day with two controlled flat-bench sets (2–3 RIR). Save harder chest work for Thursday and Saturday.":day==="Monday"?"Lower-body strength and core. Keep technique clean and leave reps in reserve.":"Recovery day: finish fresher than you started.";
  const ex=w.exercises.find(x=>findPreviousLog(day,x.name)),target=ex?`${ex.name}: ${buildProgressTarget(ex,findPreviousLog(day,ex.name))}`:"Establish clean baseline numbers today.";
  box.innerHTML=`<div class="coach-point"><strong>Today's priority</strong>${p}</div><div class="coach-point"><strong>Main progression target</strong>${target}</div><div class="coach-point"><strong>Session rule</strong>Stay within the prescribed rest periods and finish inside 60 minutes.</div>`
 }
@@ -601,6 +625,15 @@ function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:"
 function importData(file){const r=new FileReader();r.onload=()=>{try{state=Object.assign(blankState(),JSON.parse(r.result));saveState();location.reload()}catch(e){alert("That backup file could not be read.")}};r.readAsText(file)}
 function showScreen(id,title){document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("active",s.id===id));document.querySelectorAll(".bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.screen===id));document.getElementById("screenTitle").textContent=title;if(id==="progressScreen")renderProgress();if(id==="programScreen")renderProgram();window.scrollTo(0,0)}
 function init(){
+ autoAdvanceTrainingWeek();
+ const anchorField=document.getElementById("weekOneMonday");
+ anchorField.value=state.weekOneMonday||"";
+ anchorField.addEventListener("change",()=>{
+  const value=anchorField.value;
+  if(value && new Date(value+"T12:00:00").getDay()!==1){alert("Choose a Monday for Week 1.");anchorField.value=state.weekOneMonday||"";return;}
+  state.weekOneMonday=value;
+  saveState();applyStateToUi();
+ });
  document.body.classList.toggle("dark",state.dark);
  ["weekSelect","settingsWeekSelect"].forEach(id=>{const e=document.getElementById(id);setOptions(e);e.value=id==="settingsWeekSelect"?state.activeTrainingWeek:state.currentWeek;e.onchange=()=>{if(id==="settingsWeekSelect"){state.activeTrainingWeek=Number(e.value);state.currentWeek=state.activeTrainingWeek;}else{state.currentWeek=Number(e.value);}saveState();document.getElementById("weekSelect").value=state.currentWeek;document.getElementById("settingsWeekSelect").value=state.activeTrainingWeek;renderToday();renderProgress();renderProgram();}});
  const todaySelect=document.getElementById("todayWorkoutSelect");
