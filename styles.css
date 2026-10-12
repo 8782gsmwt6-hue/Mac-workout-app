@@ -68,3 +68,12 @@ button:disabled{opacity:.65;cursor:not-allowed}
 .summary-pr-list{display:grid;gap:8px}.summary-pr{background:#fff8d6;color:#5f4700;border-radius:12px;padding:10px;font-weight:800}
 body.dark .summary-pr{background:#4a3d0e;color:#ffe999}
 @media(max-width:520px){.rest-timer-panel{left:12px;right:12px;bottom:88px;justify-content:space-between}}
+
+/* Progression 2.0 */
+.set-row{grid-template-columns:auto minmax(52px,1fr) minmax(65px,82px)}
+.set-effort{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted);font-weight:700}
+.set-effort select{width:100%;min-width:0;padding:9px 4px;border-radius:10px}
+.exercise-footer{grid-template-columns:1fr}
+.progression-tip{font-size:12px;color:var(--muted);border-left:3px solid var(--primary);padding:8px 10px;margin:8px 0;background:var(--bg);border-radius:6px}
+.strength-card{padding:12px 0;border-bottom:1px solid var(--line)}.strength-card:last-child{border-bottom:0}
+.strength-card p{font-size:13px;color:var(--muted);margin:6px 0}
