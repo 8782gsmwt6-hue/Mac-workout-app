@@ -119,3 +119,20 @@ body.dark .week-day-partial{background:#493a1a;color:#ffdc91;border-color:#82652
 @media(max-width:390px){.week-track-days{gap:3px}.week-day{min-height:69px}.week-day-label{font-size:9px}.week-day-caption{font-size:8px}.weekly-card{padding:12px 9px}}
 
 .week-day-skipped{background:#fff0ed;border-color:#e6a4a4;color:#a23b35;}
+
+/* Smart Coach 3.1: read-only Program roadmap; touch-friendly on phones */
+.program-heading,.program-section-heading{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.program-heading h2{margin:5px 0}.program-intro p{line-height:1.5}.program-section-heading h3{margin:0 0 12px}
+.program-current-btn{padding:8px 10px;font-size:12px;white-space:nowrap}
+.program-week-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.program-week-tile{border:1px solid var(--line);background:var(--bg);border-radius:12px;color:var(--text);min-height:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-weight:800}
+.program-week-tile strong{font-size:21px;color:var(--muted)}.program-week-tile.trained{background:#e0f3e8;color:#176240}.program-week-tile.trained strong{color:#176240}
+.program-week-tile.current{border:2px solid var(--primary)}.program-week-tile.selected{box-shadow:0 0 0 2px var(--primary) inset}
+.program-legend{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;color:var(--muted);font-size:11px;margin-top:12px}
+.program-day-list{display:grid;gap:7px}.program-day-item{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:12px;padding:12px;min-height:60px}
+.program-day-item.selected{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}.program-day-name{font-weight:800;min-width:0}.program-day-name small{display:block;color:var(--muted);font-weight:400;margin-top:3px;font-size:12px}
+.program-status{font-size:11px;font-weight:800;color:var(--muted);white-space:nowrap}.program-status.finished{color:#1d8a58}.program-status.partial{color:#9b6c11}.program-status.skipped{color:#b34d48}
+.program-exercise-overview{display:grid;gap:0;margin:8px 0 16px}.program-exercise-item{border-bottom:1px solid var(--line);padding:11px 0;display:grid;gap:4px}.program-exercise-item:last-child{border:0}.program-exercise-item strong{font-size:14px}.program-exercise-item span,.program-exercise-item small{color:var(--muted);font-size:12px}
+.program-block-row{display:flex;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);font-size:13px}.program-block-row span{color:var(--muted)}
+body.dark .program-week-tile.trained{background:#193e30;color:#b3e9cc}body.dark .program-week-tile.trained strong{color:#b3e9cc}
+@media(max-width:380px){.program-week-grid{gap:6px}.program-day-item{padding:10px}.program-section-heading{align-items:flex-start}.program-block-row{flex-direction:column;gap:3px}}

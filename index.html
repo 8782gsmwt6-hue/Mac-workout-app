@@ -65,8 +65,26 @@
 </section>
 
 <section id="programScreen" class="screen">
-  <div class="card"><label>Choose day<select id="programDaySelect"></select><div class="schedule-note">Log any selected workout here. It syncs with Today and your other devices.</div></label></div>
-  <div id="programList"></div>
+  <div class="card program-intro">
+    <div class="eyebrow">YOUR TRAINING ROADMAP</div>
+    <div class="program-heading"><div><h2 id="programBlockTitle">Block 1 · 16-week plan</h2><p class="muted" id="programPosition">Your active training cycle</p></div><span class="badge" id="programPhaseBadge">Current</span></div>
+    <p class="muted">Plan and review here. Log sets, weight and RIR in <strong>Today</strong>.</p>
+  </div>
+  <div class="card">
+    <div class="program-section-heading"><h3>16-week roadmap</h3><span class="muted" id="programWeekSummary"></span></div>
+    <div class="program-week-grid" id="programWeekGrid" aria-label="Select training week to preview"></div>
+    <div class="program-legend"><span>✓ Trained</span><span>◉ Current</span><span>○ Planned</span></div>
+  </div>
+  <div class="card">
+    <div class="program-section-heading"><h3 id="programSelectedWeek">Week overview</h3><button type="button" class="secondary program-current-btn" id="programJumpCurrent">Current week</button></div>
+    <div class="program-day-list" id="programDayList"></div>
+  </div>
+  <div class="card">
+    <div class="program-section-heading"><h3 id="programDayHeading">Workout details</h3><span id="programDayStatus" class="program-status"></span></div>
+    <div id="programList" class="program-exercise-overview"></div>
+    <button id="programOpenToday" class="primary wide" type="button">Open this workout in Today →</button>
+  </div>
+  <div class="card"><h3>Training blocks</h3><div id="programBlocks"></div><p class="muted">When you're ready for another 16-week cycle, start the next block from Settings. Previous weights, reps and RIR remain available to your coach.</p></div>
 </section>
 
 <section id="progressScreen" class="screen">

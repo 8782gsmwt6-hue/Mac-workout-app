@@ -621,11 +621,60 @@ function makeExercise(day,ex,i,editable){
  card.appendChild(foot);
  return card;
 }
+// Program is strictly a read-only roadmap. Only Today writes workout logs.
+let programPreviewWeek=null;
+let programPreviewDay=null;
 function renderProgram(){
- const day=document.getElementById("programDaySelect").value||dayName();
- const list=document.getElementById("programList");
- list.innerHTML="";
- PROGRAM[day].exercises.forEach((ex,i)=>list.appendChild(makeExercise(day,ex,i,true)));
+ const active=Math.min(16,Math.max(1,Number(state.activeTrainingWeek)||1));
+ if(!programPreviewWeek)programPreviewWeek=active;
+ programPreviewWeek=Math.min(16,Math.max(1,Number(programPreviewWeek)||active));
+ if(!programPreviewDay||!PROGRAM[programPreviewDay])programPreviewDay=dayName();
+ const week=programPreviewWeek,day=programPreviewDay;
+ document.getElementById("programBlockTitle").textContent=`Block ${state.blockNumber} · 16-week plan`;
+ document.getElementById("programPosition").textContent=`Week ${active} of 16 is your current training week`;
+ document.getElementById("programPhaseBadge").textContent=week===active?"Current":"Browsing";
+ document.getElementById("programWeekSummary").textContent=`Viewing W${week}`;
+ const grid=document.getElementById("programWeekGrid");grid.replaceChildren();
+ for(let w=1;w<=16;w++){
+  const count=["Monday","Tuesday","Thursday","Saturday"].filter(d=>["finished","partial"].includes(weekDayStatus(w,d).kind)).length;
+  const button=document.createElement("button");button.type="button";
+  button.className="program-week-tile"+(w===week?" selected":"")+(w===active?" current":"")+(count?" trained":" ");
+  button.setAttribute("aria-label",`Week ${w}${w===active?", current week":""}, ${count} days with training`);
+  button.innerHTML=`<span>W${w}</span><strong>${count?"✓":w===active?"◉":"○"}</strong>`;
+  button.onclick=()=>{programPreviewWeek=w;renderProgram();};grid.appendChild(button);
+ }
+ document.getElementById("programSelectedWeek").textContent=`Week ${week} · Weekly schedule`;
+ const jump=document.getElementById("programJumpCurrent");jump.disabled=week===active;
+ jump.onclick=()=>{programPreviewWeek=active;renderProgram();};
+ const days=document.getElementById("programDayList");days.replaceChildren();
+ DAYS.forEach(d=>{
+  const info=weekDayStatus(week,d),button=document.createElement("button");button.type="button";
+  button.className="program-day-item"+(day===d?" selected":"");
+  button.innerHTML=`<span class="program-day-name">${d}<small>${PROGRAM[d].title}</small></span><span class="program-status ${info.kind}">${info.label}</span>`;
+  button.setAttribute("aria-pressed",String(day===d));button.onclick=()=>{programPreviewDay=d;renderProgram();};days.appendChild(button);
+ });
+ const info=weekDayStatus(week,day);
+ document.getElementById("programDayHeading").textContent=`${day} · ${PROGRAM[day].title}`;
+ const status=document.getElementById("programDayStatus");status.textContent=info.label;status.className=`program-status ${info.kind}`;
+ const list=document.getElementById("programList");list.replaceChildren();
+ if(!PROGRAM[day].exercises.length){const p=document.createElement("p");p.className="muted";p.textContent="Rest or recovery day. No strength sets scheduled.";list.appendChild(p);}
+ PROGRAM[day].exercises.forEach((ex,i)=>{
+  const div=document.createElement("div");div.className="program-exercise-item";
+  const title=document.createElement("strong");title.textContent=ex.name;
+  const detail=document.createElement("span");detail.textContent=`${ex.sets} × ${ex.reps} · Rest ${ex.rest}`;
+  const log=state.logs[keyForWeek(week,day,ex.name)];
+  const saved=document.createElement("small");saved.textContent=log&&hasCompletedSets(log)?`Logged: ${cleanRepValues(log).join("/")} reps · ${log.load||ex.load}`:`Planned load: ${inheritedLoad(day,ex.name,ex.load)}`;
+  div.append(title,detail,saved);list.appendChild(div);
+ });
+ document.getElementById("programOpenToday").onclick=()=>{
+  state.currentWeek=week;saveState();
+  document.getElementById("weekSelect").value=week;
+  sessionWorkoutDay=day;document.getElementById("todayWorkoutSelect").value=day;
+  renderToday();renderProgress();showScreen("todayScreen","Today");
+ };
+ const archive=document.getElementById("programBlocks");archive.replaceChildren();
+ const blocks=[...(state.archivedBlocks||[]).map((b,i)=>({number:b.number||i+1,archived:true})),{number:state.blockNumber,archived:false}];
+ blocks.forEach(b=>{const row=document.createElement("div");row.className="program-block-row";const name=document.createElement("strong");name.textContent=`Block ${b.number}`;const subtitle=document.createElement("span");subtitle.textContent=b.archived?"Archived · history preserved":`Active · Week ${active} of 16`;row.append(name,subtitle);archive.appendChild(row);});
 }
 function finishWorkout(){const day=activeWorkoutDay();delete state.skippedDays[`${state.currentWeek}|${day}`];state.finished[`${state.currentWeek}|${day}`]=true;const s=buildWorkoutSummary(day);saveState();stopRestTimer();renderProgress();renderToday();renderProgram();showWorkoutSummary(s);}
 function saveCheckin(){
@@ -682,7 +731,7 @@ function renderProgress(){
 function drawChart(checks){const c=document.getElementById("weightChart"),ctx=c.getContext("2d"),ratio=devicePixelRatio||1,w=c.clientWidth||320,h=190;c.width=w*ratio;c.height=h*ratio;ctx.scale(ratio,ratio);ctx.clearRect(0,0,w,h);const pts=checks.filter(x=>Number(x[1].weight));if(pts.length<1){ctx.fillStyle=getComputedStyle(document.body).getPropertyValue("--muted");ctx.font="14px -apple-system";ctx.fillText("Add weekly weights to see your trend.",14,28);return}const vals=pts.map(x=>Number(x[1].weight)),min=Math.min(...vals)-2,max=Math.max(...vals)+2,pad=28;ctx.strokeStyle="#d9e2ec";ctx.beginPath();ctx.moveTo(pad,10);ctx.lineTo(pad,h-pad);ctx.lineTo(w-8,h-pad);ctx.stroke();ctx.strokeStyle="#1f6feb";ctx.lineWidth=3;ctx.beginPath();pts.forEach((p,i)=>{const x=pad+(w-pad-12)*(i/Math.max(1,pts.length-1)),y=10+(h-pad-14)*(1-(Number(p[1].weight)-min)/(max-min||1));i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();}
 function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`mac-workout-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)}
 function importData(file){const r=new FileReader();r.onload=()=>{try{const backup=JSON.parse(r.result);if(!backup||typeof backup!=="object"||!backup.logs||typeof backup.logs!=="object")throw Error("Invalid backup");if(!confirm("Importing replaces this device’s current training data and may sync it to the cloud. Export a backup first. Continue?"))return;state=Object.assign(blankState(),backup);saveState();location.reload()}catch(e){alert("That backup file could not be read.")}};r.readAsText(file)}
-function showScreen(id,title){document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("active",s.id===id));document.querySelectorAll(".bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.screen===id));document.getElementById("screenTitle").textContent=title;if(id==="progressScreen")renderProgress();if(id==="programScreen")renderProgram();window.scrollTo(0,0)}
+function showScreen(id,title){document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("active",s.id===id));document.querySelectorAll(".bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.screen===id));document.getElementById("screenTitle").textContent=title;if(id==="progressScreen")renderProgress();if(id==="programScreen"){programPreviewWeek=Number(state.activeTrainingWeek)||1;renderProgram();}window.scrollTo(0,0)}
 function init(){
  autoAdvanceTrainingWeek();
  const anchorField=document.getElementById("weekOneMonday");
@@ -704,7 +753,7 @@ function init(){
    sessionWorkoutDay=todaySelect.value;
    renderToday();
  };
- const ds=document.getElementById("programDaySelect");DAYS.forEach(d=>{const o=document.createElement("option");o.value=d;o.textContent=d+" — "+PROGRAM[d].title;ds.appendChild(o)});ds.value=dayName();ds.onchange=renderProgram;
+ 
  document.querySelectorAll(".bottom-nav button").forEach(b=>b.onclick=()=>showScreen(b.dataset.screen,b.textContent.trim().replace(/[●▦↗⚙]/g,"")));
  document.getElementById("themeBtn").onclick=()=>{state.dark=!state.dark;saveState();document.body.classList.toggle("dark",state.dark);renderProgress()};
  document.getElementById("finishWorkoutBtn").onclick=finishWorkout;
