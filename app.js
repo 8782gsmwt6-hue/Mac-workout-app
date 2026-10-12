@@ -763,7 +763,7 @@ function init(){
  document.getElementById("restTimerStopBtn").onclick=stopRestTimer;
  document.getElementById("closeSummaryBtn").onclick=()=>document.getElementById("workoutSummaryModal").classList.add("hidden");document.getElementById("saveCheckinBtn").onclick=saveCheckin;document.getElementById("exportBtn").onclick=exportData;
  document.getElementById("importInput").onchange=e=>e.target.files[0]&&importData(e.target.files[0]);document.getElementById("resetBtn").onclick=clearAllWorkoutData;
- renderToday();renderProgress();if("serviceWorker" in navigator)navigator.serviceWorker.register("service-worker.js").catch(()=>{});
+ renderToday();renderProgress();if("serviceWorker" in navigator)navigator.serviceWorker.register("service-worker.js?v=3.1.1",{updateViaCache:"none"}).catch(()=>{});
 }
 
 
