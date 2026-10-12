@@ -196,25 +196,30 @@ function startRealtimeSync(user){
   );
 }
 
-// Week 1 Monday is set by the user; old records have no trustworthy calendar dates.
-// Advance only on calendar-week boundaries and never rewrite recorded weeks.
-function calendarProgramWeek(){
- const anchor=state.weekOneMonday;
- if(!/^\d{4}-\d{2}-\d{2}$/.test(anchor||""))return null;
- const [y,m,d]=anchor.split("-").map(Number);
- const origin=Date.UTC(y,m-1,d);
- if(new Date(origin).getUTCDay()!==1 || new Date(origin).toISOString().slice(0,10)!==anchor)return null;
- const today=new Date();
- const todayUTC=Date.UTC(today.getFullYear(),today.getMonth(),today.getDate());
- const n=Math.floor((todayUTC-origin)/(7*86400000))+1;
- return Math.min(16,Math.max(1,n));
+// Activity-based program weeks: a new Monday advances once only if the
+// previous active training week contained real completed sets or a finish flag.
+// Empty calendar weeks never consume a program week.
+function localMondayKey(date=new Date()){
+ const d=new Date(date.getFullYear(),date.getMonth(),date.getDate());
+ d.setDate(d.getDate()-(d.getDay()+6)%7);
+ return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
+}
+function hasTrainingActivity(week){
+ const prefix=String(week)+"|";
+ return Object.entries(state.finished||{}).some(([key,finished])=>key.startsWith(prefix)&&finished&&["Monday","Tuesday","Thursday","Saturday"].includes(key.split("|")[1])) ||
+   Object.entries(state.logs||{}).some(([key,log])=>key.startsWith(prefix)&&["Monday","Tuesday","Thursday","Saturday"].includes(key.split("|")[1])&&hasCompletedSets(log));
 }
 function autoAdvanceTrainingWeek(){
- const derived=calendarProgramWeek();
- if(derived===null || derived<=Number(state.activeTrainingWeek||1))return;
- const wasCurrentView=Number(state.currentWeek)===Number(state.activeTrainingWeek);
- state.activeTrainingWeek=derived;
- if(wasCurrentView)state.currentWeek=derived;
+ const monday=localMondayKey();
+ // Older workout records have no reliable dates; never guess which calendar
+ // Monday their saved program week belongs to. Seed tracking on first upgrade.
+ if(!state.lastTrainingMonday){state.lastTrainingMonday=monday;saveState();return;}
+ if(monday<=state.lastTrainingMonday)return;
+ const active=Math.min(16,Math.max(1,Number(state.activeTrainingWeek)||1));
+ const shouldAdvance=active<16&&hasTrainingActivity(active);
+ const wasCurrentView=Number(state.currentWeek)===active;
+ state.lastTrainingMonday=monday;
+ if(shouldAdvance){state.activeTrainingWeek=active+1;if(wasCurrentView)state.currentWeek=active+1;}
  saveState();
 }
 function applyStateToUi(){
@@ -243,7 +248,7 @@ const STORAGE_KEY = "macWorkoutDataV1";
 let state = loadState();
 let sessionWorkoutDay = dayName();
 if(!Number.isFinite(Number(state.activeTrainingWeek)) || !state.activeTrainingWeek) state.activeTrainingWeek=Number(state.currentWeek)||1;
-function blankState(){return {currentWeek:1,activeTrainingWeek:null,weekOneMonday:"",dark:false,logs:{},checkins:{},finished:{},selectedWorkoutDay:"",metaUpdatedAt:0,resetEpoch:0,prs:{},summaries:{}}}
+function blankState(){return {currentWeek:1,activeTrainingWeek:null,weekOneMonday:"",lastTrainingMonday:"",dark:false,logs:{},checkins:{},finished:{},selectedWorkoutDay:"",metaUpdatedAt:0,resetEpoch:0,prs:{},summaries:{}}}
 function loadState(){try{return Object.assign(blankState(),JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"));}catch(e){return blankState();}}
 function saveState(){
   state.metaUpdatedAt=Date.now();
@@ -635,7 +640,7 @@ function init(){
   saveState();applyStateToUi();
  });
  document.body.classList.toggle("dark",state.dark);
- ["weekSelect","settingsWeekSelect"].forEach(id=>{const e=document.getElementById(id);setOptions(e);e.value=id==="settingsWeekSelect"?state.activeTrainingWeek:state.currentWeek;e.onchange=()=>{if(id==="settingsWeekSelect"){state.activeTrainingWeek=Number(e.value);state.currentWeek=state.activeTrainingWeek;}else{state.currentWeek=Number(e.value);}saveState();document.getElementById("weekSelect").value=state.currentWeek;document.getElementById("settingsWeekSelect").value=state.activeTrainingWeek;renderToday();renderProgress();renderProgram();}});
+ ["weekSelect","settingsWeekSelect"].forEach(id=>{const e=document.getElementById(id);setOptions(e);e.value=id==="settingsWeekSelect"?state.activeTrainingWeek:state.currentWeek;e.onchange=()=>{if(id==="settingsWeekSelect"){state.activeTrainingWeek=Number(e.value);state.currentWeek=state.activeTrainingWeek;state.lastTrainingMonday=localMondayKey();}else{state.currentWeek=Number(e.value);}saveState();document.getElementById("weekSelect").value=state.currentWeek;document.getElementById("settingsWeekSelect").value=state.activeTrainingWeek;renderToday();renderProgress();renderProgram();}});
  const todaySelect=document.getElementById("todayWorkoutSelect");
  DAYS.forEach(d=>{const o=document.createElement("option");o.value=d;o.textContent=d+" — "+PROGRAM[d].title;todaySelect.appendChild(o)});
  const initialDay=dayName();

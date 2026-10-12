@@ -32,3 +32,12 @@ Back up your current workout data with Settings > Export backup before deploying
 - Navigate all 16 weeks; viewing another week does not change the current training week. Change actual training week in Settings.
 - Existing logs without a Finish Workout record display as Logged (partial), not Done.
 - The app cannot infer actual calendar workout dates from legacy week/day records; no calendar dates are invented.
+
+## Version 2.4 — activity-based week progression
+- On each new Monday, advance **one** program week only if the previous program week contains a completed strength set or a completed strength workout.
+- Any number of consecutive inactive calendar weeks consumes **zero** additional program weeks.
+- Activity on recovery days, skipped exercises, filled-in load fields, and check-ins alone do not count.
+- Works with the original localStorage key and Firebase document. Original workout history is not rewritten.
+- One-time setup: go to Settings → Actual training week to align current training week, because historical workout logs have no reliable calendar date; the app intentionally does not infer past skipped weeks.
+- If a workout is logged after the Monday rollover, it belongs to the currently active program week. Browsing past weeks never changes the active week.
+- After setting the actual week, the app records the current calendar Monday as its rollover baseline.
