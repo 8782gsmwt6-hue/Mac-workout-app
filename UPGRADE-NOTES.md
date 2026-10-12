@@ -24,3 +24,11 @@ Back up your current workout data with Settings > Export backup before deploying
 - Repetition placeholders say “Reps” and fields have accessible names.
 - Tighter mobile header spacing and clear last-workout/target labels.
 - Service-worker cache bumped again to refresh the deployed mobile layout.
+
+
+## Version 2.2 — weekly tracker
+- Today and Progress include a Monday–Sunday weekly activity strip with completed, logged, empty, and recovery states.
+- Click a day to view or log its exercise details.
+- Navigate all 16 weeks; viewing another week does not change the current training week. Change actual training week in Settings.
+- Existing logs without a Finish Workout record display as Logged (partial), not Done.
+- The app cannot infer actual calendar workout dates from legacy week/day records; no calendar dates are invented.

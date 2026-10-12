@@ -100,3 +100,20 @@ body.dark .summary-pr{background:#4a3d0e;color:#ffe999}
   .exercise-card {padding:11px;}
   .cloud-summary {display:none;}
 }
+
+/* Progression 2.2: compact accessible weekly record navigator */
+.weekly-card{padding:14px 12px}
+.week-track-heading h3{font-size:18px;margin:4px 0 9px;line-height:1.3}
+.week-track-current{font-size:11px;color:var(--muted);font-weight:700;white-space:nowrap}
+.week-track-nav{display:flex;justify-content:space-between;gap:6px;margin:0 0 12px}
+.week-track-nav button{font-size:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);font-weight:700;padding:9px 8px;min-height:40px}
+.week-track-nav button:disabled{opacity:.38}
+.week-track-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.week-day{display:flex;align-items:center;flex-direction:column;justify-content:center;min-width:0;min-height:77px;padding:7px 1px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text)}
+.week-day-label{font-size:10px;font-weight:800}.week-day-icon{font-size:21px;line-height:27px;font-weight:900}.week-day-caption{font-size:9px;color:var(--muted);font-weight:700}
+.week-day-finished{background:#d9f2e6;border-color:#98d8b7;color:#196b43}.week-day-partial{background:#fff4d5;border-color:#e8c77a;color:#865a0b}
+.week-day-selected{outline:2px solid var(--primary);outline-offset:1px}
+.week-track-summary{font-size:12px;color:var(--muted);line-height:1.5;margin:11px 2px 0}
+body.dark .week-day-finished{background:#183b31;color:#a8ecc8;border-color:#366e58}
+body.dark .week-day-partial{background:#493a1a;color:#ffdc91;border-color:#826529}
+@media(max-width:390px){.week-track-days{gap:3px}.week-day{min-height:69px}.week-day-label{font-size:9px}.week-day-caption{font-size:8px}.weekly-card{padding:12px 9px}}

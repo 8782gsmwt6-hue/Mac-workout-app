@@ -201,7 +201,7 @@ function applyStateToUi(){
   const week=document.getElementById("weekSelect");
   const settingsWeek=document.getElementById("settingsWeekSelect");
   if(week) week.value=state.currentWeek;
-  if(settingsWeek) settingsWeek.value=state.currentWeek;
+  if(settingsWeek) settingsWeek.value=state.activeTrainingWeek||state.currentWeek;
   const workout=document.getElementById("todayWorkoutSelect");
   if(workout&&PROGRAM[sessionWorkoutDay]){
     workout.value=sessionWorkoutDay;
@@ -218,7 +218,8 @@ const STORAGE_KEY = "macWorkoutDataV1";
 
 let state = loadState();
 let sessionWorkoutDay = dayName();
-function blankState(){return {currentWeek:1,dark:false,logs:{},checkins:{},finished:{},selectedWorkoutDay:"",metaUpdatedAt:0,resetEpoch:0,prs:{},summaries:{}}}
+if(!Number.isFinite(Number(state.activeTrainingWeek)) || !state.activeTrainingWeek) state.activeTrainingWeek=Number(state.currentWeek)||1;
+function blankState(){return {currentWeek:1,activeTrainingWeek:null,dark:false,logs:{},checkins:{},finished:{},selectedWorkoutDay:"",metaUpdatedAt:0,resetEpoch:0,prs:{},summaries:{}}}
 function loadState(){try{return Object.assign(blankState(),JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"));}catch(e){return blankState();}}
 function saveState(){
   state.metaUpdatedAt=Date.now();
@@ -367,6 +368,48 @@ function showWorkoutSummary(s){
  c.innerHTML=`<div class="summary-grid"><div class="summary-stat"><span>Sets completed</span><strong>${s.completedSets}/${s.totalSets}</strong></div><div class="summary-stat"><span>Completion</span><strong>${s.adherence}%</strong></div><div class="summary-stat"><span>Tracked volume</span><strong>${Math.round(s.totalVolume).toLocaleString()}</strong></div><div class="summary-stat"><span>New PRs</span><strong>${s.prs.length}</strong></div></div><h3>Coach recap</h3><p>${s.adherence>=90?"Strong session. Keep progressing conservatively.":s.adherence>=70?"Solid work. Complete more prescribed sets before adding load.":"Treat this as a partial session. Don't compensate by doubling volume later."}</p><h3>PRs</h3>${s.prs.length?`<div class="summary-pr-list">${s.prs.map(x=>`<div class="summary-pr">🔥 ${x}</div>`).join("")}</div>`:'<div class="muted">No new PRs this session.</div>'}`;
  m.classList.remove("hidden")
 }
+// Logs are keyed by planned program week and day; no calendar dates are inferred for old records.
+function weekDayStatus(week,day){
+ const finished=!!state.finished[`${week}|${day}`];
+ const program=PROGRAM[day];
+ const logs=program.exercises.map((ex,i)=>state.logs[keyForWeek(week,day,ex.name)]);
+ const logged=logs.filter(hasCompletedSets).length;
+ const isRecovery=["Wednesday","Friday","Sunday"].includes(day);
+ if(finished)return {kind:"finished",label:"Completed",detail:`${logged} exercises logged`};
+ if(logged)return {kind:"partial",label:"Logged",detail:`${logged} of ${program.exercises.length} exercises`};
+ if(isRecovery)return {kind:"recovery",label:day==="Friday"?"Rest":"Recovery",detail:"Optional activity not logged"};
+ return {kind:"empty",label:"Not logged",detail:"No exercise sets recorded"};
+}
+function renderWeeklyTracker(){
+ const week=Number(state.currentWeek),active=Number(state.activeTrainingWeek||week),isCurrent=week===active;
+ for(const id of ["weeklyTracker","progressWeeklyTracker"]){
+  const host=document.getElementById(id);if(!host)continue;
+  host.innerHTML="";
+  const heading=document.createElement("div");heading.className="week-track-heading";
+  heading.innerHTML=`<div><div class="eyebrow">WEEKLY ACTIVITY</div><h3>Week ${week} of 16 <span class="week-track-current">${isCurrent?"Current training week":"Viewing history"}</span></h3></div>`;
+  host.appendChild(heading);
+  const weekNav=document.createElement("div");weekNav.className="week-track-nav";
+  const previous=document.createElement("button");previous.type="button";previous.textContent="‹ Previous";previous.disabled=week<=1;
+  const next=document.createElement("button");next.type="button";next.textContent="Next ›";next.disabled=week>=16;
+  const back=document.createElement("button");back.type="button";back.textContent="Current week";back.disabled=isCurrent;
+  const changeView=(target)=>{state.currentWeek=target;saveState();document.getElementById("weekSelect").value=target;renderToday();renderProgress();renderProgram();};
+  previous.onclick=()=>changeView(week-1);next.onclick=()=>changeView(week+1);back.onclick=()=>changeView(active);
+  weekNav.append(previous,back,next);host.appendChild(weekNav);
+  const grid=document.createElement("div");grid.className="week-track-days";
+  let done=0,partial=0;
+  DAYS.forEach((day,index)=>{
+   const status=weekDayStatus(week,day);if(status.kind==="finished")done++;if(status.kind==="partial")partial++;
+   const b=document.createElement("button");b.type="button";b.className=`week-day week-day-${status.kind}`+(activeWorkoutDay()===day?" week-day-selected":"");
+   b.title=`${day}: ${status.label} — ${status.detail}`;
+   b.setAttribute("aria-label",`${day}: ${status.label}, ${status.detail}`);
+   b.innerHTML=`<span class="week-day-label">${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][index]}</span><span class="week-day-icon">${status.kind==="finished"?"✓":status.kind==="partial"?"●":status.kind==="recovery"?"–":"○"}</span><span class="week-day-caption">${status.kind==="finished"?"Done":status.kind==="partial"?"Logged":status.kind==="recovery"?"Rest":"Empty"}</span>`;
+   b.onclick=()=>{sessionWorkoutDay=day;document.getElementById("todayWorkoutSelect").value=day;renderToday();renderProgress();showScreen("todayScreen","Today");};
+   grid.appendChild(b);
+  });
+  host.appendChild(grid);
+  const summary=document.createElement("p");summary.className="week-track-summary";summary.textContent=`${done} finished · ${partial} partially logged · 4 planned strength days (Mon, Tue, Thu, Sat). An empty day means no saved sets—not necessarily a missed workout.`;host.appendChild(summary);
+ }
+}
 function renderToday(){
  const scheduled=dayName(),day=activeWorkoutDay(),workout=PROGRAM[day],guide=WEEK_PLAN[String(state.currentWeek)];
  document.getElementById("todayDate").textContent=dateLabel();
@@ -384,6 +427,7 @@ function renderToday(){
  const list=document.getElementById("exerciseList");list.innerHTML="";
  workout.exercises.forEach((ex,i)=>list.appendChild(makeExercise(day,ex,i,true)));
  buildCoachBriefing();
+ renderWeeklyTracker();
 }
 function makeExercise(day,ex,i,editable){
  const card=document.createElement("article");
@@ -542,6 +586,7 @@ function renderStrengthDashboard(){
  });
 }
 function renderProgress(){
+ renderWeeklyTracker();
  renderStrengthDashboard();
  const finished=Object.keys(state.finished).filter(k=>state.finished[k]).length,planned=state.currentWeek*4;
  document.getElementById("statWorkouts").textContent=finished;
@@ -557,7 +602,7 @@ function importData(file){const r=new FileReader();r.onload=()=>{try{state=Objec
 function showScreen(id,title){document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("active",s.id===id));document.querySelectorAll(".bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.screen===id));document.getElementById("screenTitle").textContent=title;if(id==="progressScreen")renderProgress();if(id==="programScreen")renderProgram();window.scrollTo(0,0)}
 function init(){
  document.body.classList.toggle("dark",state.dark);
- ["weekSelect","settingsWeekSelect"].forEach(id=>{const e=document.getElementById(id);setOptions(e);e.onchange=()=>{state.currentWeek=Number(e.value);saveState();document.getElementById("weekSelect").value=state.currentWeek;document.getElementById("settingsWeekSelect").value=state.currentWeek;renderToday();renderProgress();}});
+ ["weekSelect","settingsWeekSelect"].forEach(id=>{const e=document.getElementById(id);setOptions(e);e.value=id==="settingsWeekSelect"?state.activeTrainingWeek:state.currentWeek;e.onchange=()=>{if(id==="settingsWeekSelect"){state.activeTrainingWeek=Number(e.value);state.currentWeek=state.activeTrainingWeek;}else{state.currentWeek=Number(e.value);}saveState();document.getElementById("weekSelect").value=state.currentWeek;document.getElementById("settingsWeekSelect").value=state.activeTrainingWeek;renderToday();renderProgress();renderProgram();}});
  const todaySelect=document.getElementById("todayWorkoutSelect");
  DAYS.forEach(d=>{const o=document.createElement("option");o.value=d;o.textContent=d+" — "+PROGRAM[d].title;todaySelect.appendChild(o)});
  const initialDay=dayName();

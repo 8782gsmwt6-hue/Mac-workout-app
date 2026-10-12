@@ -55,6 +55,7 @@
     <label>Workout to do today<select id="todayWorkoutSelect"></select></label>
   </div>
   <div id="scheduleNote" class="schedule-note"></div>
+  <div class="card weekly-card" id="weeklyTracker" aria-label="Weekly workout tracker"></div>
 <div class="card coach-card">
   <div class="coach-title-row"><div><div class="eyebrow">SMART COACH</div><h3>Pre-workout briefing</h3></div><span id="coachReadinessBadge" class="badge">Ready</span></div>
   <div id="coachBriefing" class="coach-briefing">Loading your training history…</div>
@@ -69,6 +70,7 @@
 </section>
 
 <section id="progressScreen" class="screen">
+  <div class="card weekly-card" id="progressWeeklyTracker" aria-label="Weekly workout tracker"></div>
   <div class="stats-grid">
     <div class="stat card"><span>Workouts</span><strong id="statWorkouts">0</strong></div>
     <div class="stat card"><span>Adherence</span><strong id="statAdherence">0%</strong></div>
@@ -99,7 +101,7 @@
     <button id="exportBtn" class="secondary wide">Export backup</button>
     <label class="file-btn secondary wide">Import backup<input id="importInput" type="file" accept="application/json" hidden></label>
   </div>
-  <div class="card"><h3>Program settings</h3><label>Current week<select id="settingsWeekSelect"></select></label></div>
+  <div class="card"><h3>Program settings</h3><label>Actual training week<select id="settingsWeekSelect"></select></label><p class="muted">This is the week you are currently training. Use Today’s week selector to review older or future weeks without changing it.</p></div>
 
   <div class="card">
     <h3>Cloud sync</h3>
