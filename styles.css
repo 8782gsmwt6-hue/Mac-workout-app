@@ -136,3 +136,13 @@ body.dark .week-day-partial{background:#493a1a;color:#ffdc91;border-color:#82652
 .program-block-row{display:flex;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);font-size:13px}.program-block-row span{color:var(--muted)}
 body.dark .program-week-tile.trained{background:#193e30;color:#b3e9cc}body.dark .program-week-tile.trained strong{color:#b3e9cc}
 @media(max-width:380px){.program-week-grid{gap:6px}.program-day-item{padding:10px}.program-section-heading{align-items:flex-start}.program-block-row{flex-direction:column;gap:3px}}
+
+/* v3.2 — one set per line, including independent load and easy RIR inputs */
+.sets{grid-template-columns:1fr!important;gap:7px}
+.set-row{grid-template-columns:56px minmax(0,0.9fr) minmax(0,1.35fr) minmax(0,1.1fr)!important;align-items:end;gap:7px}
+.set-row>span{align-self:center}
+.set-load,.set-effort{min-width:0;gap:3px;font-size:11px}
+.set-row input,.set-row select{height:44px;width:100%;min-width:0;padding:7px;font-size:14px}
+.calibration-cue{display:grid;gap:10px;margin:10px 0;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:13px}
+.calibration-cue button{font-size:12px;padding:10px}
+@media(max-width:420px){.set-row{grid-template-columns:47px minmax(0,.65fr) minmax(0,1.25fr) minmax(0,1fr)!important;gap:5px;padding:8px 6px}.set-row input,.set-row select{font-size:12px;padding:5px}}

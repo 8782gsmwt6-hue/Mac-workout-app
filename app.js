@@ -112,7 +112,7 @@ async function pushLocalState(force=false){
     resetEpoch:Number(state.resetEpoch||0),
     lastDeviceId:deviceId,
     updatedAt:serverTimestamp(),
-    schemaVersion:5
+    schemaVersion:6
   },{merge:true});
   setSyncStatus("Synced","good");
   setLastSynced(Date.now());
@@ -314,24 +314,52 @@ function findPreviousLog(day,exerciseName){
 }
 function inheritedLoad(day,exerciseName,fallback){
  const latest=lastExerciseEntry(exerciseName);
- return latest&&String(latest.log.load||'').trim()?String(latest.log.load).trim():fallback;
+ return latest&&String(latest.log.load||'').trim()?lastPerSetLoad(latest.log).trim():fallback;
+}
+// v3.2 additive per-set tracking. Earlier exercise-wide loads remain valid.
+function perSetLoad(log,index,fallback=''){
+ const override=Array.isArray(log?.setLoads)?log.setLoads[index]:null;
+ return String(override??log?.load??fallback??'').trim();
+}
+function liftVolume(log){
+ return (log?.sets||[]).reduce((sum,rep,i)=>{
+  const r=Number(rep);if(!Number.isFinite(r)||r<=0)return sum;
+  return sum+r*numericLoad(perSetLoad(log,i));
+ },0);
+}
+function completedReps(log){return (log?.sets||[]).reduce((n,v)=>n+(Number(v)>0?Number(v):0),0)}
+function isBodyweightExercise(name,log){return /pull.up|push.up|dead hang/i.test(String(name||log?.exerciseName||'')) || /^bodyweight$/i.test(String(log?.load||''));}
+function lastPerSetLoad(log){
+ for(let i=(log?.sets||[]).length-1;i>=0;i--)if(Number(log.sets[i])>0){
+  const value=perSetLoad(log,i);if(value)return value;
+ }
+ return String(log?.load||'');
+}
+function normalizedRir(v){return v==null||v===''||v==='unknown'?null:(Number.isFinite(Number(v))?Number(v):null)}
+function calibrationHistory(name){return exerciseEntries(name,false).filter(x=>hasCompletedSets(x.log));}
+function calibrationDue(name){
+ const sessions=calibrationHistory(name);
+ if(!sessions.length)return false;
+ const last=sessions.map((v,i)=>v.log.calibration===true?i:-1).filter(v=>v>=0).at(-1)??-1;
+ return sessions.length-last-1>=4;
+}
+function intelligentTarget(ex,previous){
+ if(!previous)return 'Establish a clean baseline; no weight increase recommended yet.';
+ const l=previous.log,sets=(l.sets||[]).map((r,i)=>({reps:Number(r)||0,load:perSetLoad(l,i,ex.load),rir:normalizedRir(l.setRirs?.[i])})).filter(x=>x.reps>0);
+ if(!sets.length)return 'Establish a clean baseline.';
+ const top=upperRepTarget(ex.reps),minimum=Number(String(ex.reps).match(/\d+/)?.[0]||0);
+ const bw=isBodyweightExercise(ex.name,l),good=sets.filter(x=>x.rir!=null),unknown=good.length<sets.length;
+ if(unknown)return `Repeat your last working loads and aim for one additional clean rep if appropriate. RIR is incomplete or uncertain.`;
+ if(good.some(x=>x.rir===0))return `Maintain the load; several reps approached failure. Prioritize clean reps and adequate rest.`;
+ if(top && sets.length>=Number(ex.sets) && sets.every(x=>x.reps>=top&&x.rir>=1&&x.rir<=3)){
+  return bw?'Increase clean reps or reduce assistance; keep strict form.':'Eligible to try the next available weight increment, with your approval; reset toward lower rep target.';
+ }
+ if(sets.some(x=>x.reps<minimum&&minimum>0))return 'Maintain or reduce resistance until clean reps return to the prescribed range.';
+ return 'Maintain the current working loads and aim for one more clean rep on one set.';
 }
 function workingLoad(day,ex,log){return String(log?.load||inheritedLoad(day,ex.name,ex.load)).trim()||ex.load;}
 function setRir(log,index){return Array.isArray(log?.setRirs)?String(log.setRirs[index]??''):'';}
-function progressionRecommendation(day,ex){
- const prior=lastExerciseEntry(ex.name);
- if(!prior)return 'Log working sets and per-set RIR to establish a baseline.';
- const vals=cleanRepValues(prior.log),top=upperRepTarget(ex.reps),bottom=Number(String(ex.reps).match(/\d+/)?.[0]||0);
- const tracked=vals.map((_,i)=>setRir(prior.log,i));
- const effortComplete=vals.length>=Math.min(2,Number(ex.sets))&&tracked.length===vals.length&&tracked.every(r=>r!==''&&Number.isFinite(Number(r)));
- if(!effortComplete)return 'Track RIR on every completed set for an effort-aware recommendation; maintain current load meanwhile.';
- const rirs=tracked.map(Number),avg=rirs.reduce((a,b)=>a+b,0)/rirs.length;
- if(top&&vals.length>=Number(ex.sets)&&vals.every(n=>n>=top)&&avg>=1&&avg<=3)
-  return 'Increase candidate: top rep range achieved at 1–3 RIR. Try the next available dumbbell increment only if form and recovery are good; confirm the load yourself.';
- if(avg>=4&&top&&vals.every(n=>n>=bottom))return 'Likely underloaded: add clean reps or consider more resistance if available.';
- if(avg<=0.5)return 'Very hard session: maintain the weight, recover well and aim for 1–3 RIR next time.';
- return 'Maintain the working weight. Add clean reps while keeping roughly 1–3 RIR.';
-}
+function progressionRecommendation(day,ex){return intelligentTarget(ex,lastExerciseEntry(ex.name));}
 function cleanRepValues(log){
  return Array.isArray(log?.sets)
    ? log.sets.map(v=>Number(String(v||"").replace(/[^0-9.]/g,""))).filter(v=>Number.isFinite(v)&&v>0)
@@ -348,28 +376,14 @@ function previousPerformanceText(ex,previous){
  const sets=Array.isArray(previous.log.sets)
    ? previous.log.sets.filter(v=>String(v||"").trim()!=="")
    : [];
- const load=String(previous.log.load||ex.load||"").trim()||ex.load;
+ const load=sets.map((_,i)=>perSetLoad(previous.log,i,ex.load)).join(" / ")||ex.load;
  return `Block ${previous.block} · Week ${previous.week}: ${load} • ${sets.length?sets.join(" / "):"sets not recorded"}`;
 }
 
 function buildProgressTarget(ex,previous){
- if(!previous) return "Establish a clean baseline today.";
- const values=cleanRepValues(previous.log);
- const load=String(previous.log.load||ex.load||"").trim()||ex.load;
- if(!values.length) return `Repeat ${load} with clean form and record every set.`;
-
- const top=upperRepTarget(ex.reps);
- const target=[...values];
- let changed=false;
- for(let i=0;i<target.length;i++){
-   if(!top||target[i]<top){
-     target[i]+=1;
-     changed=true;
-     break;
-   }
- }
- if(changed) return `${load} • target ${target.join(" / ")} reps`;
- return `${load} • top of range reached; repeat cleanly before increasing difficulty or load.`;
+ if(!previous)return 'Establish a clean baseline today.';
+ const l=previous.log,rows=(l.sets||[]).map((r,i)=>Number(r)>0?`${perSetLoad(l,i,ex.load)} × ${Number(r)}`:null).filter(Boolean);
+ return `${rows.join(' / ')||ex.load} · ${intelligentTarget(ex,previous)}`;
 }
 function dayName(){return DAYS[(new Date()).getDay()===0?6:(new Date()).getDay()-1];}
 function dateLabel(){return new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});}
@@ -397,8 +411,8 @@ function exerciseHistory(day,name){
  const r=[];
  for(const block of allBlockSnapshots())for(let week=1;week<=16;week++){
   const l=block.logs?.[keyForWeek(week,day,name)];if(!hasCompletedSets(l))continue;
-  const reps=cleanRepValues(l),load=numericLoad(l.load);
-  r.push({block:block.number,week,day,load,reps,volume:load*reps.reduce((a,b)=>a+b,0),setRirs:l.setRirs||[],log:l});
+  const reps=cleanRepValues(l),load=numericLoad(lastPerSetLoad(l));
+  r.push({block:block.number,week,day,load,reps,volume:liftVolume(l),setRirs:l.setRirs||[],log:l});
  }
  return r;
 }
@@ -409,12 +423,13 @@ function trendText(day,name){
  if(!hasCompletedSets(current))return `Last completed: Block ${latest.block}, Week ${latest.week} · ${latest.reps.join('/')} reps at ${latest.log.load}.`;
  const previous=h.filter(r=>!(r.block===state.blockNumber&&r.week===Number(state.currentWeek))).at(-1);
  if(!previous)return 'First recorded session. Complete another workout for a trend.';
- const currentVol=numericLoad(current.load)*cleanRepValues(current).reduce((a,b)=>a+b,0);
+ const currentVol=liftVolume(current);
  const difference=Math.round(currentVol-previous.volume);
+ if(isBodyweightExercise(name,current))return `Last session: ${completedReps(previous.log)} clean reps; current: ${completedReps(current)} clean reps. Compare strict form and assistance.`;
  return `${difference>0?'+':''}${difference.toLocaleString()} lb total volume vs Block ${previous.block} Week ${previous.week} (${previous.log.load}). Compare reps and RIR at similar weights.`;
 }
 function evaluateExercisePR(day,ex,log){
- const reps=cleanRepValues(log);if(!reps.length)return null;const load=numericLoad(log.load),bestReps=Math.max(...reps),volume=load*reps.reduce((a,b)=>a+b,0),k=`${day}|${ex.name}`,p=state.prs[k]||{bestLoad:0,bestReps:0,bestVolume:0},types=[];
+ const reps=cleanRepValues(log);if(!reps.length)return null;const load=Math.max(...(log.sets||[]).map((v,i)=>Number(v)>0?numericLoad(perSetLoad(log,i,ex.load)):0)),bestReps=Math.max(...reps),volume=liftVolume(log),k=`${day}|${ex.name}`,p=state.prs[k]||{bestLoad:0,bestReps:0,bestVolume:0},types=[];
  if(load>p.bestLoad)types.push(`load ${log.load||ex.load}`);if(bestReps>p.bestReps)types.push(`reps ${bestReps}`);if(volume>p.bestVolume&&load>0)types.push(`volume ${Math.round(volume)} lb-reps`);
  if(types.length)state.prs[k]={bestLoad:Math.max(p.bestLoad,load),bestReps:Math.max(p.bestReps,bestReps),bestVolume:Math.max(p.bestVolume,volume),updatedAt:Date.now()};
  return types.length?types:null
@@ -427,7 +442,7 @@ function buildCoachBriefing(){
 }
 function buildWorkoutSummary(day){
  const w=PROGRAM[day];let completed=0,total=0,volume=0;const prs=[];
- w.exercises.forEach((ex,i)=>{total+=Number(ex.sets||0);const l=state.logs[keyFor(day,i,ex.name)];if(!l)return;const reps=cleanRepValues(l);completed+=reps.length;volume+=numericLoad(l.load)*reps.reduce((a,b)=>a+b,0);const pr=evaluateExercisePR(day,ex,l);if(pr)prs.push(`${ex.name}: ${pr.join(", ")}`)});
+ w.exercises.forEach((ex,i)=>{total+=Number(ex.sets||0);const l=state.logs[keyFor(day,i,ex.name)];if(!l)return;const reps=cleanRepValues(l);completed+=reps.length;volume+=liftVolume(l);const pr=evaluateExercisePR(day,ex,l);if(pr)prs.push(`${ex.name}: ${pr.join(", ")}`)});
  const s={day,week:state.currentWeek,completedSets:completed,totalSets:total,totalVolume:volume,adherence:total?Math.round(completed/total*100):0,prs,createdAt:new Date().toISOString()};state.summaries[`${state.currentWeek}|${day}`]=s;return s
 }
 function showWorkoutSummary(s){
@@ -517,9 +532,11 @@ function makeExercise(day,ex,i,editable){
  while(saved.sets.length<ex.sets) saved.sets.push("");
  if(saved.sets.length>ex.sets) saved.sets=saved.sets.slice(0,ex.sets);
  if(!saved.load || (!hasCompletedSets(saved) && !saved.loadEdited)) saved.load=inheritedLoad(day,ex.name,ex.load);
+ if(!Array.isArray(saved.setLoads))saved.setLoads=[];
  if(!Array.isArray(saved.setRirs)) saved.setRirs=Array(ex.sets).fill("");
  while(saved.setRirs.length<ex.sets) saved.setRirs.push("");
  if(saved.setRirs.length>ex.sets) saved.setRirs=saved.setRirs.slice(0,ex.sets);
+ if(saved.setLoads.length>ex.sets)saved.setLoads=saved.setLoads.slice(0,ex.sets);
 
  if(saved.skipped) card.classList.add("skipped");
 
@@ -589,9 +606,14 @@ function makeExercise(day,ex,i,editable){
      if(wasEmpty&&inp.value)startRestTimer(parseRestSeconds(ex.rest));
    };
    row.appendChild(inp);
-   const effort=document.createElement('label');effort.className='set-effort';effort.textContent='RIR';
+   const weightLabel=document.createElement('label');weightLabel.className='set-load';weightLabel.textContent='Load';
+   const weightInput=document.createElement('input');weightInput.type='text';weightInput.value=perSetLoad(saved,s,ex.load);weightInput.placeholder=ex.load;
+   weightInput.setAttribute('aria-label',`Set ${s+1} weight or resistance`);weightInput.disabled=!editable;
+   weightInput.onchange=()=>{saved.setLoads[s]=weightInput.value.trim();saved.exerciseName=ex.name;state.logs[logKey]=saved;saveState();};
+   weightLabel.appendChild(weightInput);row.appendChild(weightLabel);
+   const effort=document.createElement('label');effort.className='set-effort';effort.textContent='Reps left?';
    const selector=document.createElement('select');
-   selector.innerHTML='<option value="">—</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4+</option>';
+   selector.innerHTML='<option value="">Choose</option><option value="0">None (0)</option><option value="1">1 more</option><option value="2">2 more</option><option value="3">3+ more</option><option value="unknown">Not sure</option>';
    selector.value=saved.setRirs[s]||'';selector.setAttribute('aria-label',`Set ${s+1} repetitions in reserve`);selector.disabled=!editable;
    selector.onchange=()=>{saved.setRirs[s]=selector.value;saved.exerciseName=ex.name;state.logs[logKey]=saved;saveState();};
    effort.appendChild(selector);row.appendChild(effort);
@@ -604,7 +626,7 @@ function makeExercise(day,ex,i,editable){
 
  // Legacy whole-exercise RIR is preserved in saved data, never falsely assigned to a set.
  const load=document.createElement("label");
- load.innerHTML='Actual load<input type="text">';
+ load.innerHTML='Default load for this exercise<input type="text">';
  const loadInput=load.querySelector("input");
  loadInput.value=workingLoad(day,ex,saved);
  loadInput.placeholder=workingLoad(day,ex,saved);
@@ -612,13 +634,24 @@ function makeExercise(day,ex,i,editable){
  loadInput.oninput=e=>{
    saved.load=e.target.value;
    saved.loadEdited=true;
+   // Editing the default affects only sets without an explicit override.
    saved.exerciseName=ex.name;
    state.logs[logKey]=saved;
    saveState();
  };
 
  foot.append(load);
+ const hint=document.createElement('p');hint.className='muted';hint.textContent='Change the load on individual sets above for heavy and back-off sets. Default load is retained for old workouts.';foot.appendChild(hint);
  card.appendChild(foot);
+ if(calibrationDue(ex.name)&&!saved.calibration){
+  const note=document.createElement('div');note.className='calibration-cue';
+  const isBW=isBodyweightExercise(ex.name,saved);
+  const txt=document.createElement('span');txt.textContent=isBW?'Benchmark eligible: first set can measure maximum clean repetitions (no swinging).':'Benchmark eligible: use your first set as a controlled, submaximal rep benchmark; do not test a heavy lift to failure alone.';
+  const btn=document.createElement('button');btn.className='secondary';btn.type='button';btn.textContent='Mark this session as calibration';
+  btn.onclick=()=>{saved.calibration=true;saved.exerciseName=ex.name;state.logs[logKey]=saved;saveState();btn.disabled=true;btn.textContent='Calibration marked';};
+  note.append(txt,btn);card.appendChild(note);
+ }
+
  return card;
 }
 // Program is strictly a read-only roadmap. Only Today writes workout logs.
@@ -703,9 +736,22 @@ function renderStrengthDashboard(){
    container.appendChild(box);
  });
 }
+function renderBodyweightProgress(){
+ const node=document.getElementById('bodyweightDashboard');if(!node)return;
+ const histories=[];
+ for(const day of DAYS){if(!PROGRAM[day].exercises.some(ex=>ex.name==='Pull-Up'))continue;
+  for(const entry of exerciseHistory(day,'Pull-Up'))histories.push(entry);
+ }
+ histories.sort((a,b)=>a.block-b.block||a.week-b.week||DAYS.indexOf(a.day)-DAYS.indexOf(b.day));
+ if(!histories.length){node.textContent='Log strict pull-ups to see total reps and best consecutive set.';return;}
+ const latest=histories.at(-1),best=Math.max(...histories.flatMap(x=>x.reps),0);
+ const total=latest.reps.reduce((a,b)=>a+b,0);
+ node.textContent=`Pull-ups · Latest ${latest.reps.join(' / ')} = ${total} total reps · Best consecutive set: ${best} · Goal: 10 strict reps. Bodyweight work is tracked in reps, not zero-pound volume.`;
+}
 function renderProgress(){
  renderWeeklyTracker();
  renderStrengthDashboard();
+ renderBodyweightProgress();
  const finished=allBlockSnapshots().reduce((n,b)=>n+Object.keys(b.finished||{}).filter(k=>b.finished[k]).length,0),planned=((state.blockNumber-1)*16+state.currentWeek)*4;
  document.getElementById("statWorkouts").textContent=finished;
  document.getElementById("statAdherence").textContent=`${Math.min(100,Math.round(finished/Math.max(1,planned)*100))}%`;
@@ -763,7 +809,7 @@ function init(){
  document.getElementById("restTimerStopBtn").onclick=stopRestTimer;
  document.getElementById("closeSummaryBtn").onclick=()=>document.getElementById("workoutSummaryModal").classList.add("hidden");document.getElementById("saveCheckinBtn").onclick=saveCheckin;document.getElementById("exportBtn").onclick=exportData;
  document.getElementById("importInput").onchange=e=>e.target.files[0]&&importData(e.target.files[0]);document.getElementById("resetBtn").onclick=clearAllWorkoutData;
- renderToday();renderProgress();if("serviceWorker" in navigator)navigator.serviceWorker.register("service-worker.js?v=3.1.1",{updateViaCache:"none"}).catch(()=>{});
+ renderToday();renderProgress();if("serviceWorker" in navigator)navigator.serviceWorker.register("service-worker.js?v=3.2.0",{updateViaCache:"none"}).catch(()=>{});
 }
 
 

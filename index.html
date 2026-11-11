@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Mac Workout">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="styles.css?v=3.1.1">
+<link rel="stylesheet" href="styles.css?v=3.2.0">
 <title>Mac Workout</title>
 </head>
 <body>
@@ -66,7 +66,7 @@
 
 <section id="programScreen" class="screen">
   <div class="card program-intro">
-    <div class="eyebrow">YOUR TRAINING ROADMAP · v3.1.1</div>
+    <div class="eyebrow">YOUR TRAINING ROADMAP · v3.2.0</div>
     <div class="program-heading"><div><h2 id="programBlockTitle">Block 1 · 16-week plan</h2><p class="muted" id="programPosition">Your active training cycle</p></div><span class="badge" id="programPhaseBadge">Current</span></div>
     <p class="muted">Plan and review here. Log sets, weight and RIR in <strong>Today</strong>.</p><p class="muted" style="font-size:12px;margin-top:6px">If you see editable sets here, your device is running an older build.</p>
   </div>
@@ -108,6 +108,7 @@
     <button id="saveCheckinBtn" class="primary wide">Save check-in</button>
   </div>
   <div class="card"><h3>Strength progression</h3><p class="muted">Completed working sets only. Volume counts both dumbbells when load is marked “each”.</p><div id="strengthDashboard"></div></div>
+  <div class="card"><h3>Bodyweight strength</h3><p class="muted" id="bodyweightDashboard">Pull-up progress</p></div>
   <div class="card"><h3>Body-weight trend</h3><canvas id="weightChart" height="190"></canvas></div>
   <div class="card"><h3>Weekly history</h3><div id="historyList"></div></div>
 </section>
@@ -152,5 +153,5 @@
 <button data-screen="progressScreen"><span>↗</span>Progress</button>
 <button data-screen="settingsScreen"><span>⚙</span>Settings</button>
 </nav>
-<script type="module" src="app.js?v=3.1.1"></script>
+<script type="module" src="app.js?v=3.2.0"></script>
 </body></html>
