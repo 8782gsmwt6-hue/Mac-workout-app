@@ -247,3 +247,29 @@ input,select,textarea{max-inline-size:100%;min-inline-size:0}
  .week-track-nav button{font-size:11px;padding:9px 3px}
  .week-day-caption{font-size:8px}
 }
+
+/* v3.3: eight responsive, source-based muscle charts */
+.muscle-dashboard-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.muscle-dashboard-heading h3{margin:5px 0 0}
+.muscle-range-label{max-width:200px;flex:0 1 200px;font-size:12px}
+.muscle-range-label select{font-size:13px;padding:10px}
+.muscle-explainer{line-height:1.48;margin:10px 0 16px}
+.muscle-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0}
+.muscle-chart-card{min-width:0;border-radius:16px;border:1px solid var(--line);background:var(--bg);padding:13px;overflow:hidden}
+.muscle-chart-head{display:flex;justify-content:space-between;align-items:flex-start;gap:6px}
+.muscle-chart-head strong{font-size:16px}
+.muscle-chart-unit{color:var(--muted);font-size:11px;margin-top:3px}
+.muscle-chart-value{font-size:21px;font-weight:850;letter-spacing:-.035em;margin:9px 0 2px}
+.muscle-chart-delta{font-size:12px;color:var(--muted);line-height:1.35;margin-bottom:8px}
+.muscle-chart-delta.positive{color:#16784c}.muscle-chart-delta.negative{color:#b45309}
+.muscle-exercise-select{font-size:12px;padding:9px;margin-top:9px;color:var(--text)}
+.muscle-chart-visual{width:100%;aspect-ratio:320/135;margin-top:8px;display:block;overflow:visible}
+.muscle-chart-visual .axis{stroke:var(--line);stroke-width:1}
+.muscle-chart-visual .trend-line{fill:none;stroke:var(--primary);stroke-width:3.3;stroke-linecap:round;stroke-linejoin:round}
+.muscle-chart-visual .trend-dot{fill:var(--primary);stroke:var(--card);stroke-width:2}
+.muscle-chart-visual text{fill:var(--muted);font-size:11px}
+.muscle-chart-empty{font-size:13px;color:var(--muted);padding:26px 0 16px;line-height:1.5}
+.muscle-chart-foot{color:var(--muted);font-size:11px;line-height:1.4;margin-top:7px}
+.muscle-legend{margin-top:12px;font-size:12px;color:var(--muted);line-height:1.55}
+@media(max-width:680px){.muscle-charts{grid-template-columns:minmax(0,1fr)}.muscle-chart-card{padding:12px}.muscle-range-label{max-width:none;flex:1 1 100%}}
+@media(min-width:681px){.muscle-dashboard-section{padding:18px}}

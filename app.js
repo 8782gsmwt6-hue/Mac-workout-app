@@ -762,44 +762,119 @@ function saveCheckin(){
  const w=state.currentWeek;state.checkins[w]={weight:val("bodyWeight"),waist:val("waist"),sleep:val("sleep"),energy:val("energy"),soreness:val("soreness"),notes:val("weeklyNotes"),date:new Date().toISOString()};saveState();renderProgress();alert("Weekly check-in saved.");
 }
 function val(id){return document.getElementById(id).value}
-function renderStrengthDashboard(){
- const container=document.getElementById('strengthDashboard');if(!container)return;
- const names=['Incline DB Bench Press','Flat DB Bench Press','Chest-Supported DB Row'];
- container.innerHTML='';
- names.forEach(name=>{
-   const histories=[];
-   for(const day of DAYS){if(!PROGRAM[day].exercises.some(e=>e.name===name))continue;
-     for(const h of exerciseHistory(day,name))histories.push({...h,day});}
-   histories.sort((a,b)=>a.block-b.block||a.week-b.week||DAYS.indexOf(a.day)-DAYS.indexOf(b.day));
-   const box=document.createElement('div');box.className='strength-card';
-   const heading=document.createElement('strong');heading.textContent=name;box.appendChild(heading);
-   if(!histories.length){const note=document.createElement('p');note.textContent='No completed workout history yet.';box.appendChild(note);}
-   else {
-     const latest=histories[histories.length-1],first=histories[0];
-     const summary=document.createElement('p');summary.textContent=`Latest: Block ${latest.block} Week ${latest.week} ${latest.day} · ${latest.reps.join('/')} reps · ${Math.round(latest.volume).toLocaleString()} lb volume`;
-     box.appendChild(summary);
-     const detail=document.createElement('p');detail.textContent=`First recorded volume: ${Math.round(first.volume).toLocaleString()} lb · Change: ${Math.round(latest.volume-first.volume)>=0?'+':''}${Math.round(latest.volume-first.volume).toLocaleString()} lb`;
-     box.appendChild(detail);
-   }
-   container.appendChild(box);
- });
+// Each workout exercise belongs to one primary chart only to avoid double-counting.
+// Pull-ups and push-ups have their own rep-only charts; back/chest charts do not include them.
+const MUSCLE_GROUPS = [
+ {id:'chest',name:'Chest',kind:'weighted',exercises:['Incline DB Bench Press','Flat DB Bench Press','Single-Arm High-to-Low Pulley Fly']},
+ {id:'shoulders',name:'Shoulders',kind:'weighted',exercises:['Seated DB Shoulder Press','DB Lateral Raise']},
+ {id:'back',name:'Back',kind:'weighted',exercises:['Chest-Supported DB Row','Pulley Straight-Arm Pulldown']},
+ {id:'biceps',name:'Biceps',kind:'weighted',exercises:['DB Curl']},
+ {id:'triceps',name:'Triceps',kind:'weighted',exercises:['Overhead DB Triceps Extension']},
+ {id:'pullups',name:'Pull-ups',kind:'reps',exercises:['Pull-Up']},
+ {id:'pushups',name:'Push-ups',kind:'reps',exercises:['Push-Up','Push-Up Finisher']},
+ {id:'legs',name:'Legs',kind:'weighted',exercises:['Goblet Squat','DB Romanian Deadlift','Stationary Reverse Lunge','Standing DB Calf Raise']}
+];
+const muscleSelections={};
+let muscleRange='all';
+function muscleValueLabel(number,kind){
+ const value=Math.round(number);
+ return `${value.toLocaleString()} ${kind==='reps'?'reps':'lb'}`;
 }
-function renderBodyweightProgress(){
- const node=document.getElementById('bodyweightDashboard');if(!node)return;
- const histories=[];
- for(const day of DAYS){if(!PROGRAM[day].exercises.some(ex=>ex.name==='Pull-Up'))continue;
-  for(const entry of exerciseHistory(day,'Pull-Up'))histories.push(entry);
+function muscleSeries(group,selected){
+ const results=new Map();
+ for(const block of allBlockSnapshots()){
+  for(let week=1;week<=16;week++){
+   const key=`${block.number}-${week}`;
+   for(const day of DAYS){
+    for(const ex of PROGRAM[day].exercises){
+     if(!group.exercises.includes(ex.name) || (selected && ex.name!==selected))continue;
+     const log=block.logs?.[keyForWeek(week,day,ex.name)];
+     if(!hasCompletedSets(log) || log.skipped)continue;
+     const number=group.kind==='reps'?completedReps(log):liftVolume(log);
+     if(!(number>0))continue;
+     const old=results.get(key)||{block:Number(block.number),week,value:0,sets:0};
+     old.value+=number;
+     old.sets+=(log.sets||[]).filter(v=>Number(v)>0).length;
+     results.set(key,old);
+    }
+   }
+  }
  }
- histories.sort((a,b)=>a.block-b.block||a.week-b.week||DAYS.indexOf(a.day)-DAYS.indexOf(b.day));
- if(!histories.length){node.textContent='Log strict pull-ups to see total reps and best consecutive set.';return;}
- const latest=histories.at(-1),best=Math.max(...histories.flatMap(x=>x.reps),0);
- const total=latest.reps.reduce((a,b)=>a+b,0);
- node.textContent=`Pull-ups · Latest ${latest.reps.join(' / ')} = ${total} total reps · Best consecutive set: ${best} · Goal: 10 strict reps. Bodyweight work is tracked in reps, not zero-pound volume.`;
+ return [...results.values()].sort((a,b)=>a.block-b.block||a.week-b.week);
+}
+function svgNode(tag,attrs={},value){
+ const node=document.createElementNS('http://www.w3.org/2000/svg',tag);
+ for(const [key,val] of Object.entries(attrs))node.setAttribute(key,String(val));
+ if(value!==undefined)node.textContent=String(value);
+ return node;
+}
+function drawMuscleSparkline(host,points,kind){
+ host.replaceChildren();
+ const svg=svgNode('svg',{viewBox:'0 0 320 135',class:'muscle-chart-visual',role:'img','aria-label':`${points.length} logged training weeks: ${points.map(p=>`Block ${p.block}, week ${p.week}: ${muscleValueLabel(p.value,kind)}`).join('; ')}`});
+ const x0=48,x1=308,y0=13,y1=107;
+ svg.appendChild(svgNode('line',{x1:x0,y1:y1,x2:x1,y2:y1,class:'axis'}));
+ const vals=points.map(p=>p.value),max=Math.max(...vals,1),min=Math.min(0,...vals);
+ const ceiling=Math.max(1,max*1.12);
+ const X=i=>points.length===1?(x0+x1)/2:x0+(x1-x0)*i/(points.length-1);
+ const Y=v=>y1-(v-min)/(ceiling-min)*(y1-y0);
+ for(let i=0;i<3;i++){
+  const n=ceiling*i/2,y=Y(n);
+  svg.appendChild(svgNode('line',{x1:x0,y1:y,x2:x1,y2:y,class:'axis',opacity:'.45'}));
+  svg.appendChild(svgNode('text',{x:x0-6,y:y+4,'text-anchor':'end'},n>=1000?(n/1000).toFixed(n%1000?1:0)+'k':String(Math.round(n))));
+ }
+ if(points.length>1){
+  const path=points.map((p,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(p.value).toFixed(1)}`).join(' ');
+  svg.appendChild(svgNode('path',{d:path,class:'trend-line'}));
+ }
+ points.forEach((p,i)=>{
+  const dot=svgNode('circle',{cx:X(i),cy:Y(p.value),r:4.2,class:'trend-dot'});
+  dot.appendChild(svgNode('title',{},`Block ${p.block} · Week ${p.week}: ${muscleValueLabel(p.value,kind)}`));
+  svg.appendChild(dot);
+ });
+ const show=points.length===1?[0]:[0,points.length-1];
+ for(const i of show){
+  const p=points[i];svg.appendChild(svgNode('text',{x:X(i),y:128,'text-anchor':i===0&&points.length>1?'start':i===points.length-1&&points.length>1?'end':'middle'},`B${p.block} W${p.week}`));
+ }
+ host.appendChild(svg);
+}
+function renderMuscleCharts(){
+ const host=document.getElementById('muscleCharts');if(!host)return;
+ host.replaceChildren();
+ MUSCLE_GROUPS.forEach(group=>{
+  const selected=muscleSelections[group.id]||'';
+  let points=muscleSeries(group,selected);
+  if(muscleRange!=='all')points=points.slice(-Number(muscleRange));
+  const card=document.createElement('section');card.className='muscle-chart-card';
+  const heading=document.createElement('div');heading.className='muscle-chart-head';
+  const label=document.createElement('div');const title=document.createElement('strong');title.textContent=group.name;
+  const unit=document.createElement('div');unit.className='muscle-chart-unit';unit.textContent=group.kind==='reps'?'Total clean reps per logged week':'Total lifted volume per logged week';
+  label.append(title,unit);heading.append(label);card.append(heading);
+  const select=document.createElement('select');select.className='muscle-exercise-select';
+  select.setAttribute('aria-label',`Filter ${group.name} by exercise`);
+  select.appendChild(new Option('All included exercises',''));
+  group.exercises.forEach(name=>select.appendChild(new Option(name,name)));
+  select.value=selected;
+  select.onchange=()=>{muscleSelections[group.id]=select.value;renderMuscleCharts();};
+  card.append(select);
+  if(points.length){
+   const first=points[0].value,last=points.at(-1).value,delta=(last/first-1)*100;
+   const value=document.createElement('div');value.className='muscle-chart-value';value.textContent=muscleValueLabel(last,group.kind);
+   const diff=document.createElement('div');diff.className='muscle-chart-delta'+(delta>0?' positive':delta<0?' negative':'');
+   diff.textContent=points.length===1?'First logged week · need another for a trend':`${delta>0?'+':''}${Math.round(delta)}% vs first displayed logged week · ${points.length} data points`;
+   const graph=document.createElement('div');card.append(value,diff,graph);
+   drawMuscleSparkline(graph,points,group.kind);
+   const foot=document.createElement('div');foot.className='muscle-chart-foot';
+   foot.textContent=`Latest: Block ${points.at(-1).block}, Week ${points.at(-1).week} · ${points.at(-1).sets} recorded sets`;
+   card.append(foot);
+  }else{
+   const empty=document.createElement('div');empty.className='muscle-chart-empty';empty.textContent='No completed sets logged for this category yet. Your graph will appear after your first workout.';card.append(empty);
+  }
+  host.append(card);
+ });
 }
 function renderProgress(){
  renderWeeklyTracker();
- renderStrengthDashboard();
- renderBodyweightProgress();
+ renderMuscleCharts();
  const finished=allBlockSnapshots().reduce((n,b)=>n+Object.keys(b.finished||{}).filter(k=>b.finished[k]).length,0),planned=((state.blockNumber-1)*16+state.currentWeek)*4;
  document.getElementById("statWorkouts").textContent=finished;
  document.getElementById("statAdherence").textContent=`${Math.min(100,Math.round(finished/Math.max(1,planned)*100))}%`;
@@ -858,7 +933,7 @@ function init(){
  document.getElementById("restTimerStopBtn").onclick=stopRestTimer;
  document.getElementById("closeSummaryBtn").onclick=()=>document.getElementById("workoutSummaryModal").classList.add("hidden");document.getElementById("saveCheckinBtn").onclick=saveCheckin;document.getElementById("exportBtn").onclick=exportData;
  document.getElementById("importInput").onchange=e=>e.target.files[0]&&importData(e.target.files[0]);document.getElementById("resetBtn").onclick=clearAllWorkoutData;
- renderToday();renderProgress();if("serviceWorker" in navigator)navigator.serviceWorker.register("service-worker.js?v=3.2.2",{updateViaCache:"none"}).catch(()=>{});
+ renderToday();renderProgress();if("serviceWorker" in navigator)navigator.serviceWorker.register("service-worker.js?v=3.3.0",{updateViaCache:"none"}).catch(()=>{});
 }
 
 
