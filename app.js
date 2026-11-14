@@ -573,14 +573,10 @@ function makeExercise(day,ex,i,editable){
    </div>
    <div class="progress-cue-row target">
      <span>Today's target</span>
-     <strong>${previous?buildProgressTarget(ex,previous):workingLoad(day,ex,saved)+" • establish clean baseline"}</strong>
+     <strong>${workingLoad(day,ex,saved)} · ${ex.sets} sets × ${ex.reps}</strong>
    </div>`;
  card.appendChild(progress);
- const trend=document.createElement("div");
- trend.className="trend-block";
- trend.innerHTML=`<span>Strength trend</span><strong>${trendText(day,ex.name)}</strong>`;
- card.appendChild(trend);
- const recommendation=document.createElement("div");recommendation.className="progression-tip";recommendation.textContent="Coach: "+progressionRecommendation(day,ex);card.appendChild(recommendation);
+ // Coaching and trend analysis move to the post-exercise dialog.
 
  const sets=document.createElement("div");
  sets.className="sets";
@@ -643,6 +639,23 @@ function makeExercise(day,ex,i,editable){
  foot.append(load);
  const hint=document.createElement('p');hint.className='muted';hint.textContent='Change the load on individual sets above for heavy and back-off sets. Default load is retained for old workouts.';foot.appendChild(hint);
  card.appendChild(foot);
+ if(editable && !/^(Rest day|Optional easy walk)$/i.test(ex.name)){
+   const finish=document.createElement('button');
+   finish.type='button';finish.className='primary wide finish-exercise-btn';
+   finish.textContent=saved.exerciseCompleted?'Review exercise & coaching':'Finish exercise · Coach tip';
+   finish.onclick=()=>{
+     const completed=(saved.sets||[]).filter(v=>Number(v)>0).length;
+     if(completed<Number(ex.sets)){
+       alert(`Log all ${ex.sets} prescribed sets before finishing this exercise (${completed} recorded). You can still finish the full workout with partial sets.`);
+       return;
+     }
+     saved.exerciseCompleted=true;saved.exerciseName=ex.name;
+     state.logs[logKey]=saved;saveState();
+     finish.textContent='Review exercise & coaching';
+     showExerciseCoaching(day,ex,i,saved);
+   };
+   card.appendChild(finish);
+ }
  if(calibrationDue(ex.name)&&!saved.calibration){
   const note=document.createElement('div');note.className='calibration-cue';
   const isBW=isBodyweightExercise(ex.name,saved);
@@ -654,6 +667,41 @@ function makeExercise(day,ex,i,editable){
 
  return card;
 }
+
+let exerciseCoachNextIndex=null;
+function showExerciseCoaching(day,ex,index,log){
+ const panel=document.getElementById('exerciseCoachModal');
+ const content=document.getElementById('exerciseCoachContent');
+ const heading=document.getElementById('exerciseCoachHeading');
+ if(!panel||!content||!heading)return;
+ heading.textContent=ex.name;
+ const sets=(log.sets||[]).map((r,i)=>Number(r)>0?`${perSetLoad(log,i,ex.load)} × ${Number(r)}`:null).filter(Boolean);
+ const next=PROGRAM[day].exercises[index+1];
+ content.replaceChildren();
+ const result=document.createElement('div');result.className='exercise-coach-result';
+ const name=document.createElement('strong');name.textContent='Your completed sets';
+ const data=document.createElement('p');data.textContent=sets.join(' · ')||'No completed sets';
+ result.append(name,data);content.appendChild(result);
+ const tip=document.createElement('div');tip.className='exercise-coach-tip';
+ const label=document.createElement('strong');label.textContent='Coach feedback';
+ const advice=document.createElement('p');advice.textContent=intelligentTarget(ex,{log});
+ tip.append(label,advice);content.appendChild(tip);
+ const nextBox=document.createElement('div');nextBox.className='exercise-coach-next';
+ nextBox.textContent=next?`Up next: ${next.name} · ${next.sets} sets`:'All exercises in this workout are complete. Finish your workout when ready.';
+ content.appendChild(nextBox);
+ exerciseCoachNextIndex=next?index+1:null;
+ panel.classList.remove('hidden');
+ document.getElementById('exerciseCoachOk').focus();
+}
+function closeExerciseCoaching(){
+ document.getElementById('exerciseCoachModal')?.classList.add('hidden');
+ if(exerciseCoachNextIndex!=null){
+   const nextCard=document.querySelector(`#exerciseList .exercise-card[data-index="${exerciseCoachNextIndex}"]`);
+   nextCard?.scrollIntoView({behavior:'smooth',block:'start'});
+ }else{document.getElementById('finishWorkoutBtn')?.scrollIntoView({behavior:'smooth',block:'center'});}
+ exerciseCoachNextIndex=null;
+}
+
 // Program is strictly a read-only roadmap. Only Today writes workout logs.
 let programPreviewWeek=null;
 let programPreviewDay=null;
@@ -803,13 +851,14 @@ function init(){
  document.querySelectorAll(".bottom-nav button").forEach(b=>b.onclick=()=>showScreen(b.dataset.screen,b.textContent.trim().replace(/[●▦↗⚙]/g,"")));
  document.getElementById("themeBtn").onclick=()=>{state.dark=!state.dark;saveState();document.body.classList.toggle("dark",state.dark);renderProgress()};
  document.getElementById("finishWorkoutBtn").onclick=finishWorkout;
+  document.getElementById('exerciseCoachOk').onclick=closeExerciseCoaching;
  document.getElementById("skipDayBtn").onclick=markDaySkipped;
  document.getElementById("newBlockBtn").onclick=startNewTrainingBlock;
  document.getElementById("restTimerAddBtn").onclick=()=>{restTimerSeconds+=30;renderRestTimer();};
  document.getElementById("restTimerStopBtn").onclick=stopRestTimer;
  document.getElementById("closeSummaryBtn").onclick=()=>document.getElementById("workoutSummaryModal").classList.add("hidden");document.getElementById("saveCheckinBtn").onclick=saveCheckin;document.getElementById("exportBtn").onclick=exportData;
  document.getElementById("importInput").onchange=e=>e.target.files[0]&&importData(e.target.files[0]);document.getElementById("resetBtn").onclick=clearAllWorkoutData;
- renderToday();renderProgress();if("serviceWorker" in navigator)navigator.serviceWorker.register("service-worker.js?v=3.2.0",{updateViaCache:"none"}).catch(()=>{});
+ renderToday();renderProgress();if("serviceWorker" in navigator)navigator.serviceWorker.register("service-worker.js?v=3.2.1",{updateViaCache:"none"}).catch(()=>{});
 }
 
 

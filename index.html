@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Mac Workout">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="styles.css?v=3.2.0">
+<link rel="stylesheet" href="styles.css?v=3.2.1">
 <title>Mac Workout</title>
 </head>
 <body>
@@ -55,18 +55,18 @@
     <label>Workout to do today<select id="todayWorkoutSelect"></select></label>
   </div>
   <div id="scheduleNote" class="schedule-note"></div>
-  <div class="card" style="padding:12px"><button id="skipDayBtn" class="secondary wide" type="button">Mark selected workout skipped / undo</button><p class="muted">A skipped session does not advance the training week. To make it up, select that day and log it normally.</p></div><div class="card weekly-card" id="weeklyTracker" aria-label="Weekly workout tracker"></div>
-<div class="card coach-card">
+  <details class="card compact-skip"><summary>Missed workout options</summary><div class="briefing-expanded"><button id="skipDayBtn" class="secondary wide" type="button">Mark selected workout skipped / undo</button><p class="muted">A skipped session does not advance the training week. To make it up, select that day and log it normally.</p></div></details><div class="card weekly-card" id="weeklyTracker" aria-label="Weekly workout tracker"></div>
+<details class="card coach-card compact-briefing"><summary><span><span class="eyebrow">SMART COACH</span><strong>Pre-workout briefing</strong></span><span class="briefing-hint">Tap to expand</span></summary><div class="briefing-expanded">
   <div class="coach-title-row"><div><div class="eyebrow">SMART COACH</div><h3>Pre-workout briefing</h3></div><span id="coachReadinessBadge" class="badge">Ready</span></div>
   <div id="coachBriefing" class="coach-briefing">Loading your training history…</div>
-</div>
+</div></details>
   <div id="exerciseList"></div>
   <button id="finishWorkoutBtn" class="primary wide">Finish workout</button>
 </section>
 
 <section id="programScreen" class="screen">
   <div class="card program-intro">
-    <div class="eyebrow">YOUR TRAINING ROADMAP · v3.2.0</div>
+    <div class="eyebrow">YOUR TRAINING ROADMAP · v3.2.1</div>
     <div class="program-heading"><div><h2 id="programBlockTitle">Block 1 · 16-week plan</h2><p class="muted" id="programPosition">Your active training cycle</p></div><span class="badge" id="programPhaseBadge">Current</span></div>
     <p class="muted">Plan and review here. Log sets, weight and RIR in <strong>Today</strong>.</p><p class="muted" style="font-size:12px;margin-top:6px">If you see editable sets here, your device is running an older build.</p>
   </div>
@@ -141,6 +141,14 @@
   <div><span>Rest timer</span><strong id="restTimerDisplay">0:00</strong></div>
   <div class="rest-timer-actions"><button id="restTimerAddBtn" class="small-btn" type="button">+30s</button><button id="restTimerStopBtn" class="small-btn delete" type="button">Stop</button></div>
 </div>
+<div id="exerciseCoachModal" class="summary-modal hidden" role="dialog" aria-modal="true" aria-labelledby="exerciseCoachHeading">
+  <div class="summary-card exercise-coach-card">
+    <div class="eyebrow">EXERCISE FINISHED</div>
+    <h2 id="exerciseCoachHeading">Good work</h2>
+    <div id="exerciseCoachContent" class="exercise-coach-content"></div>
+    <button id="exerciseCoachOk" class="primary wide" type="button">OK — Next exercise</button>
+  </div>
+</div>
 <div id="workoutSummaryModal" class="summary-modal hidden">
   <div class="summary-card">
     <div class="coach-title-row"><div><div class="eyebrow">WORKOUT COMPLETE</div><h2>Session summary</h2></div><button id="closeSummaryBtn" class="icon-btn" type="button">×</button></div>
@@ -153,5 +161,5 @@
 <button data-screen="progressScreen"><span>↗</span>Progress</button>
 <button data-screen="settingsScreen"><span>⚙</span>Settings</button>
 </nav>
-<script type="module" src="app.js?v=3.2.0"></script>
+<script type="module" src="app.js?v=3.2.1"></script>
 </body></html>

@@ -146,3 +146,65 @@ body.dark .program-week-tile.trained{background:#193e30;color:#b3e9cc}body.dark 
 .calibration-cue{display:grid;gap:10px;margin:10px 0;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:13px}
 .calibration-cue button{font-size:12px;padding:10px}
 @media(max-width:420px){.set-row{grid-template-columns:47px minmax(0,.65fr) minmax(0,1.25fr) minmax(0,1fr)!important;gap:5px;padding:8px 6px}.set-row input,.set-row select{font-size:12px;padding:5px}}
+
+/* Smart Coach 3.2.1 — mobile fit, compact guidance, between-exercise coaching */
+html,body{width:100%;max-width:100%;overflow-x:clip}
+.app-header, main, .screen, .card, .exercise-card{min-width:0;max-width:100%}
+.app-header>div:first-child{min-width:0;flex:1 1 auto}
+.app-header .eyebrow{overflow-wrap:anywhere;line-height:1.2}
+.header-actions{flex:0 0 auto;min-width:0}
+.hero{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px}
+.hero>div:first-child{min-width:0}
+.hero h2{overflow-wrap:break-word;font-size:clamp(17px,4.8vw,23px);line-height:1.17}
+.week-pill{font-size:12px;padding:7px 9px;white-space:normal;text-align:center;max-width:112px}
+.guidance{font-size:12px;overflow-wrap:anywhere}
+.progress-cue-row strong{overflow-wrap:anywhere}
+.exercise-card{scroll-margin-top:105px}
+.exercise-head>div{min-width:0}
+.exercise-prescription{overflow-wrap:anywhere}
+.set-row,.set-row label,.set-row>input{min-width:0}
+.set-row{grid-template-columns:minmax(36px,45px) minmax(48px,.65fr) minmax(0,1.2fr) minmax(0,1.05fr)!important;gap:6px;padding:8px}
+.set-row input,.set-row select{min-width:0;max-width:100%;font-size:13px}
+.set-row .set-load input{font-size:12px}
+.set-effort,.set-load{overflow:hidden}
+.compact-briefing{padding:11px 14px;border-left:4px solid var(--primary)}
+.compact-briefing summary{cursor:pointer;display:flex;gap:8px;justify-content:space-between;align-items:center;list-style:none}
+.compact-briefing summary::-webkit-details-marker,.compact-skip summary::-webkit-details-marker{display:none}
+.compact-briefing summary>span:first-child{display:flex;flex-direction:column;gap:3px}
+.compact-briefing .briefing-hint{color:var(--muted);font-size:12px;white-space:nowrap}
+.briefing-expanded{margin-top:12px}
+.compact-skip{padding:9px 13px}
+.compact-skip summary{font-weight:700;color:var(--muted);font-size:13px;cursor:pointer;list-style:none}
+.progress-cue{padding:8px;margin:8px 0}
+.progress-cue-row{grid-template-columns:76px minmax(0,1fr);gap:8px}
+.finish-exercise-btn{margin:10px 0 1px}
+.exercise-coach-card{width:min(480px,100%)}
+.exercise-coach-card h2{margin:6px 0 12px}
+.exercise-coach-content{display:grid;gap:12px;margin:12px 0 18px}
+.exercise-coach-content p{margin:5px 0 0;line-height:1.45;overflow-wrap:anywhere}
+.exercise-coach-result,.exercise-coach-tip,.exercise-coach-next{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--bg);font-size:14px}
+.exercise-coach-next{font-weight:700}
+@media(max-width:520px){
+  .app-header{padding:10px 12px;gap:6px}
+  .app-header h1{font-size:26px}
+  .app-header .eyebrow{font-size:9px;letter-spacing:.065em}
+  .header-actions{gap:4px}
+  .cloud-summary{max-width:66px}
+  .icon-btn{width:36px;height:36px;font-size:18px}
+  main{padding-inline:10px}
+  .card{padding:12px;margin-bottom:12px}
+  .hero{padding:12px}
+  .hero h2{font-size:20px}
+  .week-pill{font-size:11px;max-width:92px}
+  .set-row{grid-template-columns:37px minmax(44px,.7fr) minmax(0,1.25fr) minmax(0,1.05fr)!important;gap:5px;padding:7px 5px}
+  .set-row>span{font-size:11px}
+  .set-row input,.set-row select{font-size:12px;padding:5px 4px;height:42px}
+  .set-load,.set-effort{font-size:10px}
+  .exercise-coach-card{max-height:min(80dvh,680px)}
+}
+@media(max-width:360px){
+  .cloud-summary{display:none}
+  .hero{grid-template-columns:1fr}
+  .week-pill{justify-self:start;max-width:none}
+  .set-row{grid-template-columns:34px minmax(40px,.7fr) minmax(0,1.2fr) minmax(0,1fr)!important;gap:3px}
+}
